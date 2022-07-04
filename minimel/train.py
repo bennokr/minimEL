@@ -12,9 +12,11 @@ import numpy as np
 import scipy.sparse as sp
 
 
-def undersample(X, y, n):
+def undersample(X, y, n, class_weight=None):
     if n < X.shape[0]:
-        weights = pd.Series(y).replace(1 / pd.Series(y).value_counts())
+        weights = None
+        if class_weight == 'balanced':
+            weights = pd.Series(y).replace(1 / pd.Series(y).value_counts())
         i = pd.DataFrame(range(X.shape[0])).sample(n=n, weights=weights)
         return X[i.index], np.array(y)[i.index]
     else:
@@ -46,7 +48,7 @@ def get_coef_df(clf, rounding=4, max_features=300):
     )
 
 
-def train_models(surface_entscore, clf, vec_filestem, max_samples=None, max_features=300):
+def train_models(surface_entscore, clf, vec_filestem, max_samples=None, max_features=300, class_weight=None):
 
     if pathlib.Path(str(vec_filestem) + ".npy").exists():
         arr = np.load(str(vec_filestem) + ".npy", mmap_mode="r")
@@ -69,7 +71,7 @@ def train_models(surface_entscore, clf, vec_filestem, max_samples=None, max_feat
         if len(set(y)) > 1:
             X, y = arr[y.index], np.array(y)
             if max_samples is not None:
-                X, y = undersample(X, y, max_samples)
+                X, y = undersample(X, y, max_samples, class_weight=class_weight)
             
             clf.fit(X, y)
             
@@ -118,8 +120,8 @@ def train(
 
         from sklearn.linear_model import LogisticRegression
         
-        cweight = None if unbalanced else 'balanced'
-        clf = LogisticRegression(solver="liblinear", C=1, class_weight=cweight)
+        class_weight = None if unbalanced else 'balanced'
+        clf = LogisticRegression(solver="liblinear", C=1, class_weight=class_weight)
 
         bag = db.from_sequence(scores)
         client.persist(bag)
@@ -130,6 +132,7 @@ def train(
             vec_filestem,
             max_samples=max_samples,
             max_features=max_features,
+            class_weight=class_weight,
         )
         logging.info(f"Training {vec_filestem} models (max {max_samples} items)")
         progress(coefs.persist())
