@@ -30,8 +30,10 @@ minimel get-disambig $WIKIDUMP-$VERSION-pages-articles.xml $WIKIDUMP-$VERSION.da
 
 ## TODO
 
-- more agressive cleaning (only top-N candidates)
-- page popularity as prior (multiply count by pop normalized per surfaceform)
+- spotlight baseline
+- performance per candidate size
+- stopword removal
+
 
 ## IDEAS
 

@@ -1,5 +1,6 @@
 # https://github.com/google-research/google-research/tree/master/dense_representations_for_entity_retrieval/mel
 import os
+import sys
 import subprocess
 import glob
 import tqdm
@@ -42,8 +43,7 @@ def run(*cmd, cwd=None):
 
 if __name__ == '__main__':
     
-    datasets = ['en','ar','de','es','fa','ja','sr','ta','tr']
-    datasets = ['nl']
+    datasets = ['en','ar','de','es','fa','ja','sr','ta','tr', 'nl']
     root = 'dense_representations_for_entity_retrieval/mel/mewsli-9/output/dataset/'
     url = 'https://github.com/google-research/google-research/trunk/dense_representations_for_entity_retrieval'
 
@@ -52,7 +52,13 @@ if __name__ == '__main__':
         run('svn','export','url')
         run('bash','get-mewsli-9.sh', 
             cwd='dense_representations_for_entity_retrieval/mel')
-
+    
+    
+    bad_ents = set()
+    for fname in sys.argv[1:]:
+        bad_ents |= set(int(l) for l in open(fname))
+    print(f'Filtering out {len(bad_ents)} bad entities')
+    
     if not os.path.exists('Mewsli-9'):
         os.makedirs('Mewsli-9')
     for lang in datasets:
@@ -61,5 +67,5 @@ if __name__ == '__main__':
 
         with open(f'Mewsli-9/{lang}.tsv', 'w') as fw:
             for (code, text), ents in annotations.items():
-                ents = json.dumps(dict(ents))
+                ents = json.dumps({s:e for s,e in ents if e not in bad_ents})
                 print(str(code), ents, text, sep='\t', file=fw)

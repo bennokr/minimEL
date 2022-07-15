@@ -54,7 +54,7 @@ def make_lr(params, dim=None):
 def get_scores(golds, preds):
     gold, pred = zip(
         *(
-            ((gs or {}).get(surface, -1), (ps or {}).get(surface, -1))
+            ((gs or {}).get(surface, -1) or -1, (ps or {}).get(surface, -1) or -1)
             for (gs, ps) in zip(golds, preds)
             for surface in set(gs or {}) | set(ps or {})
         )
@@ -115,8 +115,6 @@ def run(
     index.load(str(dawgfile))
 
     count = json.load(countfile.open()) if countfile else {}
-
-    
 
     ids, ents, texts = (), (), ()
     data = pd.concat([pd.read_csv(i, sep="\t", header=None) for i in infile])
@@ -210,7 +208,7 @@ def experiment(
     root: pathlib.Path = pathlib.Path('.'),
     *,
     vectorizers: typing.List[pathlib.Path] = (),
-    lang: str = None,
+    stem: str = None,
     maxtrain:int = 1000,
 ):
     """
@@ -219,9 +217,6 @@ def experiment(
     dawgfile = (root / f'index_{root.resolve().stem}.dawg')
     countfile = (root / f'{filtered_counts_file.stem.rsplit(".", 1)[0]}.json')
     logging.info(f'Using count file {countfile}')
-    
-    lang = root.resolve().stem.split('-')[0].replace('wiki','')
-    logging.info(f'Language: {lang}')
     
     paragraphlinks_dir = (root / f'{root.resolve().stem}-paragraph-links')
     assert paragraphlinks_dir.exists(), paragraphlinks_dir
@@ -233,21 +228,25 @@ def experiment(
     ext = 'logreg.parquet'
     
     hash_filestem = f'{filt}.hash1048576'
-    hashmodelfile = (root / f'{hash_filestem}.max{maxtrain}.{ext}')
-    if not any(root.glob(hash_filestem + '*')):
-        vectorize(paragraphlinks_dir, filtered_counts_file)
-    if not hashmodelfile.exists():
-        train(filtered_counts_file, (root / hash_filestem), max_samples=maxtrain)
-    models_vectorizers.append( (hashmodelfile, None) )
+    for unbal in [False, True]:
+        u = '.unbal' if unbal else ''
+        hashmodelfile = (root / f'{hash_filestem}.max{maxtrain}{u}.{ext}')
+        if not any(root.glob(hash_filestem + '*')):
+            vectorize(paragraphlinks_dir, filtered_counts_file)
+        if not hashmodelfile.exists():
+            train(filtered_counts_file, (root / hash_filestem), max_samples=maxtrain, unbalanced=unbal)
+        models_vectorizers.append( (hashmodelfile, None) )
 
     for vec in vectorizers:
         vec_filestem = f'{filt}.{vec.stem}'
-        vecmodelfile = (root / f'{vec_filestem}.max{maxtrain}.{ext}')
-        if not any(root.glob(vec_filestem + '*')):
-            vectorize(paragraphlinks_dir, filtered_counts_file, vectorizer=vec)
-        if not vecmodelfile.exists():
-            train(filtered_counts_file, (root / vec_filestem), max_samples=maxtrain)
-        models_vectorizers.append( (vecmodelfile, vec) )
+        for unbal in [False, True]:
+            u = '.unbal' if unbal else ''
+            vecmodelfile = (root / f'{vec_filestem}.max{maxtrain}{u}.{ext}')
+            if not any(root.glob(vec_filestem + '*')):
+                vectorize(paragraphlinks_dir, filtered_counts_file, vectorizer=vec)
+            if not vecmodelfile.exists():
+                train(filtered_counts_file, (root / vec_filestem), max_samples=maxtrain, unbalanced=unbal)
+            models_vectorizers.append( (vecmodelfile, vec) )
 
     for count_arg in (None, countfile):
         for modelfile, vectorizer in models_vectorizers:
@@ -266,7 +265,7 @@ def experiment(
                     modelfile,
                     infile,
                     vectorizer=vectorizer,
-                    lang=lang,
+                    lang=stem,
                     countfile=count_arg,
                     only_predictions=True,
                 )

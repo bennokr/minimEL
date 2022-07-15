@@ -98,7 +98,6 @@ def clean(
     entropy_threshold: float = 1.0,
     countratio_threshold: float = 0.5,
     shadowed_topn: int = None,
-    keep_topn: int = None,
 ):
     """
     Filter anchor counts (given their candidate entity counts).
@@ -126,7 +125,6 @@ def clean(
         countratio_threshold: Count-ratio (len / sum) threshold
         shadowed_topn: Only train models for N surfaceforms with highest counts
             of candidate entities shadowed by the top candidate
-        keep_topn: Only keep top N candidates
     """
     surface_ent_counts = json.load(open(countfile))
     total_ent_count = collections.Counter()
@@ -199,24 +197,21 @@ def clean(
     logging.info(f"Keeping {len(good_counts)} good surfaceforms")
     
     if shadowed_topn:
-        def shadowcount(scored):
-            surface, ec = scored
+        top_counts, shadow_counts = {}, []
+        for s, ec in good_counts.items():
             if len(ec) > 1:
-                return sum(list(ec.values())[1:])
-            else:
-                return 0
-        scores = sorted(good_counts.items(), key=shadowcount)[::-1]
-        good_counts = dict(scores[:shadowed_topn])
-    if keep_topn:
-        good_counts = {
-            s: dict(list(ec.items())[:keep_topn])
-            for s, ec in good_counts.items()
-        }
+                top, *shadow = ec.items()
+                top_counts[s] = top
+                for e,c in shadow:
+                    shadow_counts.append( (c, s, e) )
+        good_counts = {}
+        for c,s,e in sorted(shadow_counts)[::-1][:shadowed_topn]:
+            te, tc = top_counts[s]
+            good_counts.setdefault(s, {})[te] = tc
+            good_counts[s][e] = c
 
     root = pathlib.Path(countfile).parent
     name = f'clean{len(good_counts)}'
-    if keep_topn:
-        name += f'k{keep_topn}'
     outfile = root / f"{countfile.stem}.{name}.json"
     logging.info(f"Writing to {outfile}")
     with open(outfile, "w") as fw:
