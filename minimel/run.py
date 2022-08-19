@@ -3,6 +3,7 @@ import pathlib
 import pickle
 import json
 import sys
+import glob
 import logging
 from contextlib import redirect_stdout
 
@@ -210,12 +211,14 @@ def experiment(
     vectorizers: typing.List[pathlib.Path] = (),
     stem: str = None,
     maxtrain:int = 1000,
+    countfile: pathlib.Path = None,
 ):
     """
     Run experiment
     """
     dawgfile = (root / f'index_{root.resolve().stem}.dawg')
-    countfile = (root / f'{filtered_counts_file.stem.rsplit(".", 1)[0]}.json')
+    if not countfile:
+        countfile = (root / f'{filtered_counts_file.stem.rsplit(".", 1)[0]}.json')
     logging.info(f'Using count file {countfile}')
     
     paragraphlinks_dir = (root / f'{root.resolve().stem}-paragraph-links')
@@ -228,23 +231,27 @@ def experiment(
     ext = 'logreg.parquet'
     
     hash_filestem = f'{filt}.hash1048576'
-    for unbal in [False, True]:
+    for unbal in [False]:#, True]:
         u = '.unbal' if unbal else ''
-        hashmodelfile = (root / f'{hash_filestem}.max{maxtrain}{u}.{ext}')
-        if not any(root.glob(hash_filestem + '*')):
+        hashmodelfile = pathlib.Path(f'{hash_filestem}.max{maxtrain}{u}.{ext}')
+        if not list(glob.glob(hash_filestem + '*')):
+            logging.info(f'No vectors {hash_filestem}*, creating...')
             vectorize(paragraphlinks_dir, filtered_counts_file)
         if not hashmodelfile.exists():
-            train(filtered_counts_file, (root / hash_filestem), max_samples=maxtrain, unbalanced=unbal)
+            logging.info(f'No model {hashmodelfile}, creating...')
+            train(filtered_counts_file, hash_filestem, max_samples=maxtrain, unbalanced=unbal)
         models_vectorizers.append( (hashmodelfile, None) )
 
     for vec in vectorizers:
         vec_filestem = f'{filt}.{vec.stem}'
         for unbal in [False, True]:
             u = '.unbal' if unbal else ''
-            vecmodelfile = (root / f'{vec_filestem}.max{maxtrain}{u}.{ext}')
-            if not any(root.glob(vec_filestem + '*')):
+            vecmodelfile = pathlib.Path(f'{vec_filestem}.max{maxtrain}{u}.{ext}')
+            if not list(glob.glob(vec_filestem + '*')):
+                logging.info(f'No vectors {vec_filestem}*, creating...')
                 vectorize(paragraphlinks_dir, filtered_counts_file, vectorizer=vec)
             if not vecmodelfile.exists():
+                logging.info(f'No model {vecmodelfile}, creating...')
                 train(filtered_counts_file, (root / vec_filestem), max_samples=maxtrain, unbalanced=unbal)
             models_vectorizers.append( (vecmodelfile, vec) )
 
