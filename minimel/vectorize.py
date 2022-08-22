@@ -8,15 +8,39 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 import pathlib, argparse, logging
 import re, html
 import pickle
-import scipy.sparse
-
 import json
+
+import scipy.sparse
+import tqdm
 import pandas as pd
 import numpy as np
 
 from .normalize import normalize
 
+token_pattern = re.compile(r"(?u)\b\w\w+\b")
+    
+def enc(x, dim=2**18):
+    return str( abs(hash(x)) % dim )
+    
+def vw_tok(text, dim=2**18):
+    return [enc(t, dim=dim) for t in token_pattern.findall(text.lower())]
 
+def vw(lines, surface_weights, dim=2**18):
+    for line in lines:
+        pgid, mention_ent, text = line.split('\t', 2)
+        mention_ent = json.loads(mention_ent)
+        tokens = vw_tok(text, dim=dim)
+        for m, e in mention_ent.items():
+            if m in surface_weights:
+                if len(surface_weights[m]) > 1:
+                    labels = [f'{e}:0']
+                    for o in surface_weights[m]:
+                        if o != e:
+                            labels += [f'{o}:1']
+                    if labels and tokens:
+                        yield (' '.join(labels), '|', ' '.join(tokens))
+
+                        
 def hashvec(paragraphs, dim=None, lang=None, tokenizer=None):
     from sklearn.feature_extraction.text import HashingVectorizer
 
@@ -25,7 +49,7 @@ def hashvec(paragraphs, dim=None, lang=None, tokenizer=None):
 
         tokenizer = Tokenizer(lang=lang).tokenize
     vec = HashingVectorizer(
-        n_features=(dim or 1048576),
+        n_features=(dim or 2**18),
         tokenizer=tokenizer,
     )
     return vec.fit_transform(paragraphs)
@@ -76,7 +100,6 @@ def cull_empty_partitions(df):
         df = dd.from_delayed(df_delayed_new, meta=pempty)
     return df
 
-
 def vectorize(
     paragraphlinks: pathlib.Path,
     anchor_json: pathlib.Path,
@@ -86,7 +109,7 @@ def vectorize(
     lang: str = None,
 ):
     """
-    Vectorize paragraph text dataset
+    Vectorize paragraph text dataset into Vowpal Wabbit format
 
     Args:
         paragraphlinks: Paragraph links directory
@@ -96,54 +119,21 @@ def vectorize(
         dim: Dimensionality cutoff. If using HashingVectorizer, hash dimensions.
         lang: ICU tokenizer language
     """
-    import dask.bag as db
-    from .scale import progress, get_client
+    surface_weights = json.load(anchor_json.open())
+    surface_weights = {
+        m:{int(e.replace('Q','')):c for e,c in ec.items()} 
+        for m, ec in surface_weights.items()
+    }
+                
+    if vectorizer:
+        name = anchor_json.stem + "." + vectorizer.stem
+    else:
+        name = anchor_json.stem + ".hash" + str(dim or 2**18)
 
-    with get_client():
-        inglob = str(paragraphlinks) + "/*"
-        bag = db.read_text(inglob)
-        bag = bag.map_partitions(filter_paragraphs, anchor_json)
-        df = bag.to_dataframe(meta=[("links", "O"), ("paragraph", "O")])
-
-        logging.info("Filtering paragraphs")
-        progress(df.persist())
-
-        # Get feature array
-        df = cull_empty_partitions(df)
-        para = df["paragraph"]
-        logging.info(f"Featurizing {para.count().compute()} paragraphs")
-        if vectorizer is None:
-            arr = para.map_partitions(hashvec, dim).persist()
-        else:
-            assert pathlib.Path(vectorizer).exists()
-            try:
-                pickle.load(open(vectorizer, "rb"))  # only check
-                arr = para.map_partitions(transform, vectorizer).persist()
-            except pickle.UnpicklingError:
-                arr = para.map_partitions(embed, vectorizer).persist()
-
-        progress(arr)
-        arr = arr.compute()
-        logging.info(f"Created {arr.shape} {type(arr).__name__}")
-
-        logging.info("Creating index")
-        links = df["links"].compute().reset_index(drop=True)
-        by_surface, by_ent = links.map(dict.items).explode().str
-        
-        # TODO: normalize!
-
-        if vectorizer:
-            name = anchor_json.stem + "." + vectorizer.stem
-        else:
-            name = anchor_json.stem + ".hash" + str(dim or 1048576)
-
-        name = str(anchor_json.parent / name)
-        if scipy.sparse.issparse(arr):
-            logging.info(f"Writing sparse .npz & .index.parquet to {name}")
-            scipy.sparse.save_npz(name + ".npz", arr)
-        else:
-            logging.info(f"Writing dense .npy & .index.parquet to {name}")
-            np.save(name + ".npy", arr.astype(np.float16))
-
-        index_df = pd.DataFrame(dict(by_surface=by_surface, by_ent=by_ent))
-        index_df.to_parquet(name + ".index.parquet")
+    fname = (anchor_json.parent / (name + '.dat'))
+    with open(fname, 'w') as fw:
+        for file in tqdm.tqdm(list(paragraphlinks.glob('*'))):
+            # TODO: vectorizer, lang
+            for out in vw(file.open(), surface_weights, dim=(dim or 2**18)):
+                print(out, file=fw)
+    return fname

@@ -12,11 +12,11 @@ import tqdm
 import pandas as pd
 import numpy as np
 import scipy.sparse
-from sklearn.linear_model import LogisticRegression
+from vowpalwabbit import pyvw
 from sklearn.metrics import precision_recall_fscore_support
 
 from .normalize import normalize
-from .vectorize import hashvec, transform, embed, vectorize
+from .vectorize import hashvec, transform, embed, vectorize, vw_tok
 from .train import train
 
 def vectorize_text(texts, vectorizer=None, dim=None):
@@ -30,27 +30,6 @@ def vectorize_text(texts, vectorizer=None, dim=None):
         except pickle.UnpicklingError:
             return embed(texts, vectorizer)
 
-
-def make_lr(params, dim=None):
-    lr = LogisticRegression()
-    lr.classes_ = np.array(params.reset_index()["class"])
-    lr.intercept_ = params.intercept.values
-    issparse = lambda x: any(type(v) == list for v in x or ())
-    sparse = params.coef.map(issparse).any()
-
-    def coefs(params):
-        for col, ccoef in enumerate(list(params.coef)):
-            if ccoef:
-                for row, data in enumerate(ccoef):
-                    if type(data) == list:
-                        row, data = data
-                    yield data, (row, col)
-
-    data, rowcol = zip(*coefs(params))
-    row, col = zip(*rowcol)
-    shape = (params.shape[0], dim or 1048576) if dim or sparse else None
-    lr.coef_ = scipy.sparse.csr_matrix((data, (col, row)), shape=shape)
-    return lr
 
 def get_scores(golds, preds):
     gold, pred = zip(
@@ -75,6 +54,7 @@ def get_scores(golds, preds):
 
 def run(
     dawgfile: pathlib.Path,
+    candidatefile: pathlib.Path = None,
     modelfile: pathlib.Path = None,
     *infile: pathlib.Path,
     vectorizer: pathlib.Path = None,
@@ -89,7 +69,8 @@ def run(
 
     Args:
         dawgfile: DAWG trie file of Wikipedia > Wikidata count
-        modelfile: Parquet file of Logistic Regression coefficients
+        candidatefile: Candidate {surfaceform -> [ID]} json
+        modelfile: Vowpal Wabbit model
         infile: Input file (- or absent for standard input). TSV rows of
             (ID, {surface -> ID}, text) or ({surface -> ID}, text) or (text)
 
@@ -104,18 +85,20 @@ def run(
     if (not infile) or (infile == "-"):
         infile = (sys.stdin, )
     logging.debug(f'Reading from {infile}')
-
-    models = {}
-    if modelfile:
-        gs = pd.read_parquet(str(modelfile)).groupby(level=0)
-        it = tqdm.tqdm(gs, "Loading models") if logging.root.level < 30 else gs
-        for surface, params in it:
-            models[surface] = make_lr(params, dim)
-
+    
     index = dawg.IntDAWG()
     index.load(str(dawgfile))
 
+    candidates = json.load(candidatefile.open()) if candidatefile else {}
     count = json.load(countfile.open()) if countfile else {}
+    
+    model = None
+    if candidatefile and modelfile:
+        ents = set(int(e.replace('Q','')) for es in candidates.values() for e in es)
+        model = pyvw.Workspace(
+            csoaa=max(ents),
+            initial_regressor=str(modelfile)
+        )
 
     ids, ents, texts = (), (), ()
     data = pd.concat([pd.read_csv(i, sep="\t", header=None) for i in infile])
@@ -127,10 +110,10 @@ def run(
         data[1] = data[1].map(json.loads)
         ids, ents, texts = data[0], data[1], data[2]
 
-    if models:
-        it = tqdm.tqdm(texts, "Vectorizing") if logging.root.level < 30 else texts
-        X = vectorize_text(it, vectorizer=vectorizer, dim=dim)
-        logging.info(f"Vectorized data of shape {X.shape}")
+    # if modelfile:
+    #     it = tqdm.tqdm(texts, "Vectorizing") if logging.root.level < 30 else texts
+    #     X = vectorize_text(it, vectorizer=vectorizer, dim=dim)
+    #     logging.info(f"Vectorized data of shape {X.shape}")
 
     preds = []
     it = tqdm.tqdm(texts, "Predicting") if logging.root.level < 30 else texts
@@ -140,13 +123,10 @@ def run(
             for surface in ents[i]:
                 pred = None
                 for norm in normalize(surface, language=lang):
-                    m = models.get(norm, None)
-                    if m:
-                        try:
-                            pred = int(m.predict(X[i].reshape(1, -1))[0])
-                        except ValueError:
-                            logging.error(f"Model coef is {m.coef_.shape}")
-                            raise
+                    ent_cand = candidates.get(norm, None)
+                    if ent_cand and model:
+                        item = ' '.join(ent_cand) + ' | ' + ' '.join(vw_tok(texts[i]))
+                        pred = model.predict(item)
                     elif norm in count:
                         dist = count[norm]
                         pred = max(dist, key=lambda x: dist[x])
@@ -210,7 +190,7 @@ def experiment(
     *,
     vectorizers: typing.List[pathlib.Path] = (),
     stem: str = None,
-    maxtrain:int = 1000,
+    maxtrain:int = None,
     countfile: pathlib.Path = None,
 ):
     """
@@ -228,31 +208,40 @@ def experiment(
     predfiles = []
     models_vectorizers = [(None,None)]
     filt = filtered_counts_file.stem
-    ext = 'logreg.parquet'
+    ext = 'vw'
     
-    hash_filestem = f'{filt}.hash1048576'
-    for unbal in [False]:#, True]:
+    # Create feature hashing model
+    dim = 2**18
+    hash_filestem = f'{filt}.hash{dim}'
+    for unbal in [False, True]:
         u = '.unbal' if unbal else ''
-        hashmodelfile = pathlib.Path(f'{hash_filestem}.max{maxtrain}{u}.{ext}')
-        if not list(glob.glob(hash_filestem + '*')):
-            logging.info(f'No vectors {hash_filestem}*, creating...')
-            vectorize(paragraphlinks_dir, filtered_counts_file)
+        m = f'.max{maxtrain}' if maxtrain else ''
+        hashmodelfile = pathlib.Path(f'{hash_filestem}{m}{u}.{ext}')
+        if not list(glob.glob(hash_filestem + '*.dat')):
+            logging.info(f'No vectors {hash_filestem}*.dat, creating...')
+            hash_file = vectorize(paragraphlinks_dir, filtered_counts_file, dim=dim)
+        else:
+            hash_file = list(glob.glob(hash_filestem + '*.dat'))[0]
         if not hashmodelfile.exists():
             logging.info(f'No model {hashmodelfile}, creating...')
-            train(filtered_counts_file, hash_filestem, max_samples=maxtrain, unbalanced=unbal)
+            train(filtered_counts_file, hash_file, max_samples=maxtrain, unbalanced=unbal)
         models_vectorizers.append( (hashmodelfile, None) )
 
+    # Create custom vectorizer models
     for vec in vectorizers:
         vec_filestem = f'{filt}.{vec.stem}'
         for unbal in [False, True]:
             u = '.unbal' if unbal else ''
-            vecmodelfile = pathlib.Path(f'{vec_filestem}.max{maxtrain}{u}.{ext}')
-            if not list(glob.glob(vec_filestem + '*')):
-                logging.info(f'No vectors {vec_filestem}*, creating...')
-                vectorize(paragraphlinks_dir, filtered_counts_file, vectorizer=vec)
+            m = f'.max{maxtrain}' if maxtrain else ''
+            vecmodelfile = pathlib.Path(f'{vec_filestem}{m}{u}.{ext}')
+            if not list(glob.glob(vec_filestem + '*.dat')):
+                logging.info(f'No vectors {vec_filestem}*.dat, creating...')
+                vec_file = vectorize(paragraphlinks_dir, filtered_counts_file, vectorizer=vec)
+            else:
+                vec_file = list(glob.glob(vec_filestem + '*.dat'))[0]
             if not vecmodelfile.exists():
                 logging.info(f'No model {vecmodelfile}, creating...')
-                train(filtered_counts_file, (root / vec_filestem), max_samples=maxtrain, unbalanced=unbal)
+                train(filtered_counts_file, vec_file, max_samples=maxtrain, unbalanced=unbal)
             models_vectorizers.append( (vecmodelfile, vec) )
 
     for count_arg in (None, countfile):
@@ -269,6 +258,7 @@ def experiment(
             with open(outfile, 'w') as f, redirect_stdout(f):
                 run(
                     dawgfile,
+                    filtered_counts_file,
                     modelfile,
                     infile,
                     vectorizer=vectorizer,
