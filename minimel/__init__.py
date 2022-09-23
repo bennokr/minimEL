@@ -5,5 +5,5 @@ from .get_paragraphs import get_paragraphs
 from .count import count
 from .clean import clean
 from .vectorize import vectorize, filter_paragraphs
-from .train import train, undersample
+from .train import train
 from .run import run, evaluate, experiment

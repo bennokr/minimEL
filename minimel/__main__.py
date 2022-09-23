@@ -36,7 +36,7 @@ def main():
         args = parser.parse_args(sys.argv[1:])
         logging.basicConfig(level=30 - (args.verbose * 10))
 
-        from dask.distributed import Client
+        from dask.distributed import Client, LocalCluster
 
         if args.slurm:
             from dask_jobqueue import SLURMCluster
@@ -53,6 +53,10 @@ def main():
             cluster.scale(jobs=16)
             client = Client(cluster)
             logging.info(f"Running on {client}")
+        # else:
+        #     cluster = LocalCluster(n_workers=4, threads_per_worker=2)
+        #     client = Client(cluster)
+        #     logging.info(f"Running on {client}")
 
         return parser
 

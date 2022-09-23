@@ -95,8 +95,10 @@ def run(
     model = None
     if candidatefile and modelfile:
         ents = set(int(e.replace('Q','')) for es in candidates.values() for e in es)
+        i_ent = dict(enumerate(sorted(ents)))
+        ent_i = {e:i for i,e in i_ent.items()}
         model = pyvw.Workspace(
-            csoaa=max(ents),
+            csoaa=len(ents),
             initial_regressor=str(modelfile)
         )
 
@@ -125,8 +127,10 @@ def run(
                 for norm in normalize(surface, language=lang):
                     ent_cand = candidates.get(norm, None)
                     if ent_cand and model:
-                        item = ' '.join(ent_cand) + ' | ' + ' '.join(vw_tok(texts[i]))
-                        pred = model.predict(item)
+                        es = [str(ent_i[int(e)]) for e in ent_cand]
+                        ns = '_'.join(vw_tok(surface))
+                        item = ' '.join(es) + f' |{ns} ' + ' '.join(vw_tok(texts[i]))
+                        pred = i_ent[model.predict(item)]
                     elif norm in count:
                         dist = count[norm]
                         pred = max(dist, key=lambda x: dist[x])
@@ -189,8 +193,7 @@ def experiment(
     root: pathlib.Path = pathlib.Path('.'),
     *,
     vectorizers: typing.List[pathlib.Path] = (),
-    stem: str = None,
-    maxtrain:int = None,
+    stem: str = None, # TODO
     countfile: pathlib.Path = None,
 ):
     """
@@ -212,43 +215,41 @@ def experiment(
     
     # Create feature hashing model
     dim = 2**18
-    hash_filestem = f'{filt}.hash{dim}'
-    for unbal in [False, True]:
-        u = '.unbal' if unbal else ''
-        m = f'.max{maxtrain}' if maxtrain else ''
-        hashmodelfile = pathlib.Path(f'{hash_filestem}{m}{u}.{ext}')
+    for bal in [False]:#, True]:
+        b = '.bal' if bal else ''
+        hash_filestem = f'{filt}.hash{dim}{b}'
+        hashmodelfile = pathlib.Path(f'{hash_filestem}.{ext}')
         if not list(glob.glob(hash_filestem + '*.dat')):
             logging.info(f'No vectors {hash_filestem}*.dat, creating...')
-            hash_file = vectorize(paragraphlinks_dir, filtered_counts_file, dim=dim)
+            hash_file = vectorize(paragraphlinks_dir, filtered_counts_file, dim=dim, balanced=bal)
         else:
             hash_file = list(glob.glob(hash_filestem + '*.dat'))[0]
         if not hashmodelfile.exists():
             logging.info(f'No model {hashmodelfile}, creating...')
-            train(filtered_counts_file, hash_file, max_samples=maxtrain, unbalanced=unbal)
+            train(filtered_counts_file, hash_file)
         models_vectorizers.append( (hashmodelfile, None) )
 
     # Create custom vectorizer models
     for vec in vectorizers:
-        vec_filestem = f'{filt}.{vec.stem}'
-        for unbal in [False, True]:
-            u = '.unbal' if unbal else ''
-            m = f'.max{maxtrain}' if maxtrain else ''
-            vecmodelfile = pathlib.Path(f'{vec_filestem}{m}{u}.{ext}')
+        for bal in [False]:#, True]:
+            b = '.bal' if bal else ''
+            vec_filestem = f'{filt}.{vec.stem}{b}'
+            vecmodelfile = pathlib.Path(f'{vec_filestem}.{ext}')
             if not list(glob.glob(vec_filestem + '*.dat')):
                 logging.info(f'No vectors {vec_filestem}*.dat, creating...')
-                vec_file = vectorize(paragraphlinks_dir, filtered_counts_file, vectorizer=vec)
+                vec_file = vectorize(paragraphlinks_dir, filtered_counts_file, vectorizer=vec, balanced=bal)
             else:
                 vec_file = list(glob.glob(vec_filestem + '*.dat'))[0]
             if not vecmodelfile.exists():
                 logging.info(f'No model {vecmodelfile}, creating...')
-                train(filtered_counts_file, vec_file, max_samples=maxtrain, unbalanced=unbal)
+                train(filtered_counts_file, vec_file)
             models_vectorizers.append( (vecmodelfile, vec) )
 
     for count_arg in (None, countfile):
         for modelfile, vectorizer in models_vectorizers:
             outfile = 'pred-mewsli-'
             if modelfile:
-                outfile += modelfile.stem.rsplit('.', 1)[0]
+                outfile += modelfile.stem
             else:
                 outfile += 'base'
             outfile += ('-' + count_arg.stem) if count_arg else ''
