@@ -28,11 +28,11 @@ def count_links(lines, language=None):
     return [(a, e, c) for a, cs in link_count.items() for e, c in cs.items()]
 
 
-def count(paragraphlinks: pathlib.Path, min_count: int = 2, language: str = None):
+def count(paragraphlinks: pathlib.Path, *, min_count: int = 2, language: str = None):
     """
     Count targets per anchor text in Wikipedia paragraphs.
 
-    Writes `count.min{min_count}.json`
+    Writes `count.min{min_count}[.stem-{LANG}].json`
 
     Args:
         paragraphlinks: Directory of (pagetitle, links-json, paragraph) .tsv files
@@ -75,7 +75,7 @@ def count(paragraphlinks: pathlib.Path, min_count: int = 2, language: str = None
         if logging.root.level < 30:
             progress(a_e_count.persist(), out=sys.stderr)
         
-        stem = f'.stem-{language}' if language else ''
+        stem = f'-stem' if language else ''
         outfile = paragraphlinks.parent / f"count.min{min_count}{stem}.json"
         logging.info(f"Writing to {outfile}")
         a_e_count.compute().to_json(outfile)

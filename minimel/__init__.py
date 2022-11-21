@@ -4,6 +4,7 @@ from .get_disambig import get_disambig
 from .get_paragraphs import get_paragraphs
 from .count import count
 from .clean import clean
-from .vectorize import vectorize, filter_paragraphs
+from .ent_feats import ent_feats
+from .vectorize import vectorize
 from .train import train
 from .run import run, evaluate, experiment

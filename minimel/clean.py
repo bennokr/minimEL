@@ -97,7 +97,7 @@ def clean(
     tokenscore_threshold: float = 0.1,
     entropy_threshold: float = 1.0,
     countratio_threshold: float = 0.5,
-    shadowed_topn: int = None,
+    shadowed_top: float = None,
 ):
     """
     Filter anchor counts (given their candidate entity counts).
@@ -123,7 +123,7 @@ def clean(
             between surface form and candidate entity labels
         entropy_threshold: Entropy threshold (high entropy = flat dist)
         countratio_threshold: Count-ratio (len / sum) threshold
-        shadowed_topn: Only train models for N surfaceforms with highest counts
+        shadowed_top: Only train models for a % surfaceforms with highest counts
             of candidate entities shadowed by the top candidate
     """
     surface_ent_counts = json.load(open(countfile))
@@ -162,7 +162,8 @@ def clean(
         }
     surface_ent_counts = {s:ec for s,ec in surface_ent_counts.items() if ec}
 
-    title_ids, id_titles = get_titles(str(indexdbfile), ents, set(surface_ent_counts), language=lang)
+    title_ids, id_titles = get_titles(
+        str(indexdbfile), ents, set(surface_ent_counts), language=lang)
 
     # Collect bad surface forms
     high_entropy, high_countratio, no_tokenmatch = set(), set(), set()
@@ -196,7 +197,7 @@ def clean(
     }
     logging.info(f"Keeping {len(good_counts)} good surfaceforms")
     
-    if shadowed_topn:
+    if shadowed_top:
         top_counts, shadow_counts = {}, []
         for s, ec in good_counts.items():
             if len(ec) > 1:
@@ -205,14 +206,10 @@ def clean(
                 for e,c in shadow:
                     shadow_counts.append( (c, s, e) )
         good_counts = {}
+        shadowed_topn = int(shadowed_top * len(shadow_counts))
         for c,s,e in sorted(shadow_counts)[::-1][:shadowed_topn]:
             te, tc = top_counts[s]
             good_counts.setdefault(s, {})[te] = tc
             good_counts[s][e] = c
 
-    root = pathlib.Path(countfile).parent
-    name = f'clean{len(good_counts)}'
-    outfile = root / f"{countfile.stem}.{name}.json"
-    logging.info(f"Writing to {outfile}")
-    with open(outfile, "w") as fw:
-        json.dump(good_counts, fw)
+    print(json.dumps(good_counts))

@@ -58,11 +58,13 @@ def run(
     modelfile: pathlib.Path = None,
     *infile: pathlib.Path,
     vectorizer: pathlib.Path = None,
-    dim: int = None,
+    ent_feats_csv: pathlib.Path = None,
     lang: str = None,
     countfile: pathlib.Path = None,
     evaluate: bool = False,
-    only_predictions: bool = False,
+    predict_only: bool = False,
+    score_only: bool = False,
+    upperbound: bool = False,
 ):
     """
     Perform entity linking
@@ -77,10 +79,11 @@ def run(
     Keyword Arguments:
         vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
             embeddings. If unset, use HashingVectorizer.
-        dim: Dimensionality cutoff. If using HashingVectorizer, hash dimensions.
+        ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
         countfile: Additional preferred deterministic surfaceform -> ID json
         evaluate: Report evaluation scores instead of predictions
-        only_predictions: Only print predictions, not original text
+        predict_only: Only print predictions, not original text
+        upperbound: Create upper bound on performance
     """
     if (not infile) or (infile == "-"):
         infile = (sys.stdin, )
@@ -92,14 +95,21 @@ def run(
     candidates = json.load(candidatefile.open()) if candidatefile else {}
     count = json.load(countfile.open()) if countfile else {}
     
+    ent_feats = None
+    if ent_feats_csv:
+        ent_feats = pd.read_csv(ent_feats_csv, header=None, index_col=0, na_values='')[1]
+        ent_feats = ent_feats.fillna('')
+        logging.info(f'Loaded {len(ent_feats)} entity features')
+    
     model = None
     if candidatefile and modelfile:
-        ents = set(int(e.replace('Q','')) for es in candidates.values() for e in es)
-        i_ent = dict(enumerate(sorted(ents)))
-        ent_i = {e:i for i,e in i_ent.items()}
         model = pyvw.Workspace(
-            csoaa=len(ents),
-            initial_regressor=str(modelfile)
+            initial_regressor=str(modelfile),
+            loss_function="logistic",
+            csoaa_ldf="mc",
+            probabilities=True,
+            testonly=True,
+            quiet=True,
         )
 
     ids, ents, texts = (), (), ()
@@ -112,11 +122,22 @@ def run(
         data[1] = data[1].map(json.loads)
         ids, ents, texts = data[0], data[1], data[2]
 
-    # if modelfile:
-    #     it = tqdm.tqdm(texts, "Vectorizing") if logging.root.level < 30 else texts
-    #     X = vectorize_text(it, vectorizer=vectorizer, dim=dim)
-    #     logging.info(f"Vectorized data of shape {X.shape}")
-
+    
+    def model_predict(model, text, norm, ents, ent_feats=None, score=False):
+        preds = {}
+        ents = list(ents)
+        toks = 'shared |s ' + ' '.join(vw_tok(text))
+        ns = '_'.join(vw_tok(norm))
+        for i,ent in enumerate(ents):
+            efeats = str(ent_feats.get(l, '')) if (ent_feats is not None) else ''
+            efeats = '|f ' + efeats if efeats else ''
+            cands = [f'{e} |l {ns}={e} {efeats}' for e in ents[i:] + ents[:i]]
+            preds[ent] = model.predict([toks] + cands)
+        if score:
+            return preds
+        else:
+            return max(preds.items(), key=lambda x: x[1])[0]
+    
     preds = []
     it = tqdm.tqdm(texts, "Predicting") if logging.root.level < 30 else texts
     for i, text in enumerate(it):
@@ -124,22 +145,35 @@ def run(
         if len(ents):
             for surface in ents[i]:
                 pred = None
+                if upperbound:
+                    gold = ents[i][surface]
+                    if int(index.get(surface.replace(" ", "_"), -1)) == gold:
+                        pred = gold
+                    else:
+                        for norm in normalize(surface, language=lang):
+                            if (norm in count) and (gold in count[norm]):
+                                pred = gold
+                    continue
                 for norm in normalize(surface, language=lang):
                     ent_cand = candidates.get(norm, None)
                     if ent_cand and model:
-                        es = [str(ent_i[int(e)]) for e in ent_cand]
-                        ns = '_'.join(vw_tok(surface))
-                        item = ' '.join(es) + f' |{ns} ' + ' '.join(vw_tok(texts[i]))
-                        pred = i_ent[model.predict(item)]
+                        pred = model_predict(model, text, norm, ent_cand,
+                                            score = score_only)
                     elif norm in count:
                         dist = count[norm]
                         pred = max(dist, key=lambda x: dist[x])
                     elif surface.replace(" ", "_") in index:
                         pred = index[surface.replace(" ", "_")]
                     if pred:
-                        ent_pred[surface] = int(str(pred).replace('Q',''))
+                        if score_only:
+                            if type(pred) != dict:
+                                pred = {pred: 1}
+                            pred = {f'Q{p}': s for p,s in pred.items()}
+                        else:
+                            pred = int(str(pred).replace('Q',''))
+                        ent_pred[surface] = pred
         if not evaluate:
-            if only_predictions:
+            if predict_only or score_only:
                 if len(ids):
                     print(ids[i], json.dumps(ent_pred), sep="\t")
                 else:
@@ -180,14 +214,24 @@ def evaluate(
     for predfile in tqdm.tqdm(predfiles, 'Evaluating'):
         data = pd.read_csv(str(predfile), sep="\t", header=None)
         pred = data[0] if data.shape[1] == 1 else data.set_index(0)[1]
-        pred = pred.map(json.loads)
+        pred = pred.fillna('{}').map(json.loads)
+        
+        pred = pred.map(lambda x: x if not type(x)==float else {} )
+        gold = gold.map(lambda x: x if not type(x)==float else {} )
+        
         preddf = pd.DataFrame({'gold':gold, 'pred':pred })
+        import numpy as np
+        preddf = preddf.replace([np.nan], [None])
         scores[predfile.stem] = get_scores(preddf.gold, preddf.pred)
         
-    pd.set_option('display.max_colwidth', None)
-    print(pd.DataFrame(scores).T)
+    if 'defopt' in sys.modules:
+        pd.set_option('display.max_colwidth', None)
+        print(pd.DataFrame(scores).T)
+    else:
+        return pd.DataFrame(scores).T
     
 def experiment(
+    dawgfile: pathlib.Path,
     filtered_counts_file: pathlib.Path,
     infile: pathlib.Path,
     root: pathlib.Path = pathlib.Path('.'),
@@ -199,14 +243,9 @@ def experiment(
     """
     Run experiment
     """
-    dawgfile = (root / f'index_{root.resolve().stem}.dawg')
     if not countfile:
         countfile = (root / f'{filtered_counts_file.stem.rsplit(".", 1)[0]}.json')
     logging.info(f'Using count file {countfile}')
-    
-    paragraphlinks_dir = (root / f'{root.resolve().stem}-paragraph-links')
-    assert paragraphlinks_dir.exists(), paragraphlinks_dir
-    assert filtered_counts_file.exists(), filtered_counts_file
     
     predfiles = []
     models_vectorizers = [(None,None)]
@@ -265,7 +304,7 @@ def experiment(
                     vectorizer=vectorizer,
                     lang=stem,
                     countfile=count_arg,
-                    only_predictions=True,
+                    predict_only=True,
                 )
     
     evaluate(

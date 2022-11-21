@@ -8,6 +8,7 @@ subcommands = [
     count,
     clean,
     vectorize,
+    ent_feats,
     train,
     run,
     eval,
@@ -36,22 +37,25 @@ def main():
         args = parser.parse_args(sys.argv[1:])
         logging.basicConfig(level=30 - (args.verbose * 10))
 
-        from dask.distributed import Client, LocalCluster
+        from dask.distributed import Client, LocalCluster, TimeoutError, CancelledError
 
         if args.slurm:
             from dask_jobqueue import SLURMCluster
 
-            logging.info("Setting up SLURM cluster...")
-            cluster = SLURMCluster(
-                cores=4,
-                processes=4,
-                memory="64GB",
-                project="woodshole",
-                walltime="00:15:00",
-                dashboard_address=":8883",
-            )
-            cluster.scale(jobs=16)
-            client = Client(cluster)
+            try:
+                client = Client('tcp://localhost:8883', timeout='5s')
+            except (TimeoutError, OSError):
+                logging.info("Setting up SLURM cluster...")
+                cluster = SLURMCluster(
+                    cores=4,
+                    processes=4,
+                    memory="64GB",
+                    project="minimel",
+                    walltime="00:15:00",
+                    dashboard_address=":8883",
+                )
+                cluster.scale(jobs=16)
+                client = Client(cluster)
             logging.info(f"Running on {client}")
         # else:
         #     cluster = LocalCluster(n_workers=4, threads_per_worker=2)
