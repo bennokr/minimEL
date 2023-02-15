@@ -8,3 +8,4 @@ from .ent_feats import ent_feats
 from .vectorize import vectorize
 from .train import train
 from .run import run, evaluate, experiment
+from .audit import audit

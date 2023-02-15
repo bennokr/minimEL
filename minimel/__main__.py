@@ -13,6 +13,7 @@ subcommands = [
     run,
     eval,
     experiment,
+    audit,
 ]
 
 

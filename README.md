@@ -45,16 +45,16 @@ for q in "0.25" "0.5" "1"; do for s in "" "-stem"; do for f in "feat-clean-q1.p5
 
 7. Train models
 ```
-for b in "16" "20" "24"; do for q in "0.25" "0.5" "1"; do for s in "" "-stem"; do for f in "feat-clean-q1.p5"; do fname=train$s-q$q${f:+.$f}-b$b; echo $fname; prun -v -np 1 -t 24:00:00 time minimel -v train clean$s-q$q${f:+.$f}.dat -b $b </dev/null &> $fname.log & done; done; done; done
+for b in "16" "20" "24"; do for q in "0.25" "0.5" "1"; do for s in "" "-stem"; do for f in "" "feat-clean-q1.p5"; do fname=train$s-q$q${f:+.$f}-b$b; echo $fname; prun -v -np 1 -t 24:00:00 time minimel -v train clean$s-q$q${f:+.$f}.dat -b $b </dev/null &> $fname.log & done; done; done; done
 ```
 
 8. Run models
 ```
-for b in "16" "20" "24"; do for q in "0.25" "0.5" "1"; do for s in "" "-stem"; do for f in "feat-clean-q1.p5"; do minimel -v run -p  ../index_$WIKI-$VERSION.dawg clean-q$q.json clean-q$q${f:+.$f}."$b"b.vw ${f:+--ent-feats-csv $f.csv} ${s:+-l $LANGCODE} <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv  > pred-mewsli${s:-'-clean'}-q$q${f:+.$f}."$b"b.tsv; minimel -v run -p  ../index_$WIKI-$VERSION.dawg clean-q$q.json clean-q$q${f:+.$f}."$b"b.vw -c clean$s-q1.json ${f:+--ent-feats-csv $f.csv} ${s:+-l $LANGCODE} <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv  > pred-mewsli${s:-'-clean'}-q$q${f:+.$f}."$b"b.clean$s-q1.tsv; done; done; done; done
+for b in "16" "20" "24"; do for q in "0.25" "0.5" "1"; do for s in "" "-stem"; do for f in "" "feat-clean-q1.p5"; do minimel -v run -p  ../index_$WIKI-$VERSION.dawg clean-q$q.json clean-q$q${f:+.$f}."$b"b.vw ${f:+--ent-feats-csv $f.csv} ${s:+-l $LANGCODE} <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv  > pred-mewsli${s:-'-clean'}-q$q${f:+.$f}."$b"b.tsv; minimel -v run -p  ../index_$WIKI-$VERSION.dawg clean-q$q.json clean-q$q${f:+.$f}."$b"b.vw -c clean$s-q1.json ${f:+--ent-feats-csv $f.csv} ${s:+-l $LANGCODE} <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv  > pred-mewsli${s:-'-clean'}-q$q${f:+.$f}."$b"b.clean$s-q1.tsv; done; done; done; done
 
 minimel -v run -p ../index_$WIKI-$VERSION.dawg <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv > pred-mewsli-base.tsv; minimel -v run -p ../index_$WIKI-$VERSION.dawg -c clean-q1.json <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv > pred-mewsli-base.clean-q1.tsv; minimel -v run -p ../index_$WIKI-$VERSION.dawg -c clean-stem-q1.json -l $LANGCODE  <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv > pred-mewsli-base.clean-stem-q1.tsv
 
-minimel -v run -p ../index_$WIKI-$VERSION.dawg -u <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv > pred-mewsli-upper.tsv; minimel -v run -p ../index_$WIKI-$VERSION.dawg -c clean-q1.json -u <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv > pred-mewsli-upper.clean-q1.tsv; minimel -v run -p ../index_$WIKI-$VERSION.dawg -c clean-stem-q1.json -l $LANGCODE -u <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv > pred-mewsli-upper.clean-stem-q1.tsv
+minimel -v run -p ../index_$WIKI-$VERSION.dawg -c clean-q1.json -u <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv > pred-mewsli-upper.clean-q1.tsv; minimel -v run -p ../index_$WIKI-$VERSION.dawg -c clean-stem-q1.json -l $LANGCODE -u <  ../../minimal-EL/evaluation/Mewsli-9/$LANGCODE.tsv > pred-mewsli-upper.clean-stem-q1.tsv
 ```
 
 

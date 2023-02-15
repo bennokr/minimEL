@@ -124,6 +124,7 @@ def run(
 
     
     def model_predict(model, text, norm, ents, ent_feats=None, score=False):
+        # TODO: replace with vectorize.vw!!!
         preds = {}
         ents = list(ents)
         toks = 'shared |s ' + ' '.join(vw_tok(text))
@@ -146,32 +147,32 @@ def run(
             for surface in ents[i]:
                 pred = None
                 if upperbound:
-                    gold = ents[i][surface]
-                    if int(index.get(surface.replace(" ", "_"), -1)) == gold:
-                        pred = gold
+                    gold = str(ents[i][surface])
+                    for norm in normalize(surface, language=lang):
+                        if (norm in count) and (gold in count[norm]):
+                            pred = gold
+                    if not pred:
+                        if str(index.get(surface.replace(" ", "_"), -1)) == gold:
+                            pred = gold
+                else:
+                    for norm in normalize(surface, language=lang):
+                        ent_cand = candidates.get(norm, None)
+                        if ent_cand and model:
+                            pred = model_predict(model, text, norm, ent_cand,
+                                                score = score_only)
+                        elif norm in count:
+                            dist = count[norm]
+                            pred = max(dist, key=lambda x: dist[x])
+                        elif surface.replace(" ", "_") in index:
+                            pred = index[surface.replace(" ", "_")]
+                if pred:
+                    if score_only:
+                        if type(pred) != dict:
+                            pred = {pred: 1}
+                        pred = {f'Q{p}': s for p,s in pred.items()}
                     else:
-                        for norm in normalize(surface, language=lang):
-                            if (norm in count) and (gold in count[norm]):
-                                pred = gold
-                    continue
-                for norm in normalize(surface, language=lang):
-                    ent_cand = candidates.get(norm, None)
-                    if ent_cand and model:
-                        pred = model_predict(model, text, norm, ent_cand,
-                                            score = score_only)
-                    elif norm in count:
-                        dist = count[norm]
-                        pred = max(dist, key=lambda x: dist[x])
-                    elif surface.replace(" ", "_") in index:
-                        pred = index[surface.replace(" ", "_")]
-                    if pred:
-                        if score_only:
-                            if type(pred) != dict:
-                                pred = {pred: 1}
-                            pred = {f'Q{p}': s for p,s in pred.items()}
-                        else:
-                            pred = int(str(pred).replace('Q',''))
-                        ent_pred[surface] = pred
+                        pred = int(str(pred).replace('Q',''))
+                    ent_pred[surface] = pred
         if not evaluate:
             if predict_only or score_only:
                 if len(ids):

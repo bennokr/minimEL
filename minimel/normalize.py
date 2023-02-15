@@ -70,7 +70,9 @@ def stem(text, code):
         if code not in STEMMERS:
             import MeCab
 
-            STEMMERS[code] = MeCab.Tagger("-Owakati")
-        return STEMMERS[code].parse(text).strip()
+            STEMMERS[code] = MeCab.Tagger()
+        analysis = STEMMERS[code].parse(text).split('\n')[:-2]
+        columns = tuple(zip(*[l.split('\t') for l in analysis]))
+        return ' '.join(columns[2]).strip()
     else:
         return ' '.join(tokenizer(text))
