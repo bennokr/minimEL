@@ -11,6 +11,7 @@ import html
 import pickle
 import json
 
+import dawg
 import scipy.sparse
 import tqdm
 import pandas as pd
@@ -23,18 +24,44 @@ token_pattern = re.compile(r"(?u)\b\w\w+\b")
 def vw_tok(text):
     return [t for t in token_pattern.findall(text.lower()) if ('|' not in t) and (':' not in t)]
 
-def vw(lines, anchor_json: pathlib.Path, ent_feats_csv=None, balanced=False, language=False):
+def vw(lines, anchor_json: pathlib.Path, ent_feats_csv=None, balanced=False, language=False, usenil=False):
+    """Create VW-formatted training data
+    
+    Args:
+        lines: iterable of (pageid, {name: entityid} json, text) tsv lines
+        anchor_json: path to json file of {name: {entityid: weight}}
+        ent_feats_csv: path to csv of (entityid,feat1 feat2 feat3 ...)
+        
+    """
     surface_weights = json.load(anchor_json.open())
     surface_weights = {
         m:{int(e.replace('Q','')):c for e,c in ec.items()} 
         for m, ec in surface_weights.items()
     }
     
+    if usenil:
+        # Make surfaceform lookup trie
+        surface_trie = dawg.CompletionDAWG(surface_weights)
+    
+    # Load entity features
     ent_feats = None
     if ent_feats_csv:
         ent_feats = pd.read_csv(ent_feats_csv, header=None, index_col=0, na_values='')[1]
         ent_feats = ent_feats.fillna('')
         logging.info(f'Loaded {len(ent_feats)} entity features')
+    
+    def vw_label_lines(weights, e, norm, ent_feats=None):
+        if len(weights) > 1:
+            entlabels = [(int(e),0)] # positive
+            for o,c in weights.items(): # negatives
+                if o != e:
+                    w = int(np.log1p(c)) if balanced else 1
+                    entlabels += [(int(o),w)]
+            ns = '_'.join(vw_tok(norm))
+            for l,w in entlabels:
+                efeats = str(ent_feats.get(l, '')) if (ent_feats is not None) else ''
+                efeats = '|f ' + efeats if efeats else ''
+                yield f'{l}:{w} |l {ns}={l} {efeats}'
     
     outlines = []
     for line in lines:
@@ -44,31 +71,34 @@ def vw(lines, anchor_json: pathlib.Path, ent_feats_csv=None, balanced=False, lan
         except ValueError:
             print(mention_ent)
             raise
-        tokens = vw_tok(text)
+        
+        tokens = vw_tok(text) # Tokenize
+        if not tokens:
+            continue
         labels = []
         for m, e in mention_ent.items():
             for norm in normalize(m, language=language):
                 if norm in surface_weights and e in surface_weights[norm]:
                     weights = surface_weights[norm]
-                    if len(weights) > 1:
-                        entlabels = [(int(e),0)] # positive
-                        for o,c in weights.items(): # negatives
-                            if o != e:
-                                w = int(np.log1p(c)) if balanced else 1
-                                entlabels += [(int(o),w)]
-                        if entlabels and tokens:
-                            ns = '_'.join(vw_tok(norm))
-                            for l,w in entlabels:
-                                feats = ''
-                                if (ent_feats is not None):
-                                    feats = str(ent_feats.get(l, ''))
-                                    if feats:
-                                        feats = '|f ' + feats
-                                labels.append(f'{l}:{w} |l {ns}={l} {feats}')
+                    for label in vw_label_lines(weights, e, norm, ent_feats):
+                        labels.append(label)
+        
+        if usenil:
+            # add NIL data from surface_trie
+            for normtext in normalize(text, language=language):
+                normtoks = vw_tok(normtext)
+                for i,tok in enumerate(vw_tok(normtext)):
+                    for comp in surface_trie.keys(tok):
+                        if comp not in mention_ent:
+                            comp_toks = vw_tok(comp)
+                            if tokens[i:i+len(comp_toks)] == comp_toks:
+                                # NIL match
+                                weights = surface_weights[comp]
+                                for label in vw_label_lines(weights, -1, comp, ent_feats):
+                                    labels.append(label)
+        
         if labels:
-            outlines.append(f'shared |s ' + ' '.join(tokens))
-            outlines += labels
-            outlines.append('')
+            outlines += [f'shared |s ' + ' '.join(tokens)] + labels + ['']
     outlines.append('')
     return outlines
 

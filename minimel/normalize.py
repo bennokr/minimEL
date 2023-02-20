@@ -4,11 +4,11 @@ import html
 
 def normalize(a, language=None):
     """Yields 1 normalized form of entity mention `a` if possible"""
-    QUOTECHARS = "'\"〞「❜❞＂”‚〝»‟―‹›❛❮’‘〟❯„‛“❝«"
+    BADCHARS = "'\"〞「❜❞＂”‚〝»‟―‹›❛❮’‘〟❯„‛“❝«()"
     if a:
         a = a.replace("_", " ")
-        a = re.sub(f"[{QUOTECHARS}]", "", a.replace("&nbsp;", " "))
-        a = html.unescape(a).lower().strip().split(" (")[0]
+        a = re.sub(f"[{BADCHARS}]", "", a.replace("&nbsp;", " "))
+        a = html.unescape(a).lower().strip()
         # no numbers or dates
         if not (a.startswith("<") or re.match("^[0-9-/—]+$", a)):
             if a and language:
