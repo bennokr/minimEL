@@ -112,7 +112,7 @@ def clean(
     Args:
         indexdbfile: Wikimapper index sqlite3 database
         disambigfile: Disambiguation JSON file
-        countfile: Hyperlink anchor count JSON file
+        countfile: Hyperlink anchor count {word: {Q_ent: count}} JSON file
 
     Keyword Arguments:
         lang: Stemming language ISO 639-1 (2-letter) code

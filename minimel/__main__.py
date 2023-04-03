@@ -6,6 +6,7 @@ subcommands = [
     get_disambig,
     get_paragraphs,
     count,
+    count_surface,
     clean,
     vectorize,
     ent_feats,

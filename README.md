@@ -13,15 +13,19 @@
 ```
 wikimapper download $WIKI-$VERSION
 wikimapper create $WIKI-$VERSION
-minimel index $WIKI-$VERSION.db
+minimel index index_$WIKI-$VERSION.db
 ```
 2. Get list-anchors from disambiguation pages
 ```
 wget https://dumps.wikimedia.org/$WIKI/$VERSION/$WIKI-$VERSION-pages-articles.xml.bz2
 bunzip2 $VERSION-pages-articles.xml.bz2
-minimel get-disambig $WIKI-$VERSION-pages-articles.xml $WIKI-$VERSION.dawg disambig_page_ids.txt
+minimel get-disambig $WIKI-$VERSION-pages-articles.xml index_$WIKI-$VERSION.dawg disambig_page_ids.txt
 ```
-3. Create wikipedia paragraph dataset
+3. Create wikipedia paragraph links dataset
+```
+minimel -sv get-paragraphs $WIKI-$VERSION-pages-articles.xml index_$WIKI-$VERSION.dawg
+```
+
 
 4. Count surface-link occurrences
 ```

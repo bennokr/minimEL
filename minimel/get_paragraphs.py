@@ -101,7 +101,6 @@ def get_paragraphs(
     Args:
         wikidump: Wikipedia pages-articles XML dump file
         dawgfile: DAWG trie file of Wikipedia > Wikidata mapping
-        outdir: Output directory
         skip: Skip pages with this prefix
 
     Keyword Arguments:

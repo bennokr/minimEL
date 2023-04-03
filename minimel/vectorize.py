@@ -19,7 +19,7 @@ import numpy as np
 
 from .normalize import normalize
 
-token_pattern = re.compile(r"(?u)\b\w\w+\b")
+token_pattern = re.compile(r"(?u)\b\w+\b")
     
 def vw_tok(text):
     return [t for t in token_pattern.findall(text.lower()) if ('|' not in t) and (':' not in t)]

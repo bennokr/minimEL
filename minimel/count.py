@@ -5,7 +5,7 @@ import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-import sys, pathlib, argparse, logging, json, collections, re, html
+import sys, pathlib, argparse, logging, json, collections, re, html, itertools
 
 import dawg
 import pandas as pd
@@ -14,7 +14,7 @@ from tqdm.auto import tqdm
 tqdm.pandas()
 
 from .normalize import normalize
-
+from minimel.vectorize import vw_tok
 
 def count_links(lines, language=None):
     link_count = collections.defaultdict(collections.Counter)
@@ -79,3 +79,70 @@ def count(paragraphlinks: pathlib.Path, *, min_count: int = 2, language: str = N
         outfile = paragraphlinks.parent / f"count.min{min_count}{stem}.json"
         logging.info(f"Writing to {outfile}")
         a_e_count.compute().to_json(outfile)
+
+        
+
+def get_matches(surface_trie, text, language=None):
+    # is normalize best here?
+    for normtext in normalize(text, language=language):
+        normtoks = normtext.split()
+        for i,tok in enumerate(normtoks):
+            for comp in surface_trie.keys(tok):
+                comp_toks = comp.split()
+                if normtoks[i:i+len(comp_toks)] == comp_toks:
+                    yield comp
+
+def count_surface_lines(lines, countfile, language=None, head=None):
+    surfaces = json.load(open(countfile))
+    surface_trie = dawg.CompletionDAWG(surfaces)
+    counts = collections.Counter()
+    for line in itertools.islice(lines, 0, head):
+        _, _, text = line.split('\t', 2)
+        counts.update(get_matches(surface_trie, text, language=language))
+    return list(counts.items())
+        
+
+def count_surface(paragraphlinks: pathlib.Path, countfile: pathlib.Path, *, language: str = None, head: int = None):
+    """
+    Count anchor texts in Wikipedia paragraphs.
+
+    Writes `word{count}[.stem-{LANG}].json`
+
+    Args:
+        paragraphlinks: Directory of (pagetitle, links-json, paragraph) .tsv files
+        countfile: Hyperlink anchor count JSON file
+
+    Keyword Arguments:
+        language: Language code for tokenization & stemming
+    """
+
+    import dask.bag as db
+    from .scale import progress, get_client
+    
+    if language:
+        logging.info(f"Snowball stemming for language: {language}")
+
+    with get_client():
+
+        bag = db.read_text(str(paragraphlinks) + "/*", files_per_partition=3)
+        counts = (
+            bag.map_partitions(count_surface_lines, countfile, language=language, head=head)
+            .to_dataframe(meta={'surface':str, 'c':int})
+            .groupby("surface")["c"].sum(split_out=32)
+            .persist()
+        )
+
+        logging.info("Counting surfaceforms...")
+        if logging.root.level < 30:
+            progress(counts.persist(), out=sys.stderr)
+
+        logging.info(f"Got {len(counts)} counts.")
+        logging.info("Aggregating...")
+
+        if logging.root.level < 30:
+            progress(counts.persist(), out=sys.stderr)
+        
+        stem = f'-stem' if language else ''
+        outfile = paragraphlinks.parent / f"word{countfile.stem}{stem}.json"
+        logging.info(f"Writing to {outfile}")
+        counts.compute().to_json(outfile)
