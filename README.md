@@ -1,4 +1,4 @@
-# Minimal Entity Linking Baseline
+# Minimalist Entity Linking
 
 
 
