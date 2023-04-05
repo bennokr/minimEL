@@ -1,0 +1,6 @@
+sphinxcontrib-apidoc
+dask
+tqdm
+dawg
+mecab-python3
+unidic-lite
