@@ -1,4 +1,5 @@
 sphinxcontrib-apidoc
+myst-parser
 dask
 tqdm
 dawg
