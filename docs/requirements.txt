@@ -2,6 +2,7 @@ sphinxcontrib-apidoc
 myst-parser
 mwparserfromhell
 dask[distributed]
+pandas
 tqdm
 dawg
 mecab-python3
