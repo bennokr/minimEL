@@ -3,6 +3,7 @@ myst-parser
 mwparserfromhell
 dask[distributed]
 pandas
+scipy
 regex
 tqdm
 dawg
