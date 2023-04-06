@@ -3,6 +3,7 @@ myst-parser
 mwparserfromhell
 dask[distributed]
 pandas
+regex
 tqdm
 dawg
 mecab-python3
