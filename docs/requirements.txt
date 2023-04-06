@@ -1,7 +1,7 @@
 sphinxcontrib-apidoc
 myst-parser
 mwparserfromhell
-dask
+dask[distributed]
 tqdm
 dawg
 mecab-python3
