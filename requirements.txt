@@ -8,3 +8,4 @@ dawg
 mecab-python3
 unidic-lite
 vowpalwabbit
+seaborn
