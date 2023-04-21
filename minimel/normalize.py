@@ -1,6 +1,6 @@
 import re
 import html
-
+import logging
 
 def normalize(a, language=None):
     """Yields 1 normalized form of entity mention `a` if possible"""
@@ -71,8 +71,14 @@ def stem(text, code):
             import MeCab
 
             STEMMERS[code] = MeCab.Tagger()
+        if not text.strip():
+            return ''
         analysis = STEMMERS[code].parse(text).split('\n')[:-2]
         columns = tuple(zip(*[l.split('\t') for l in analysis]))
-        return ' '.join(columns[2]).strip()
+        try:
+            return ' '.join(columns[2]).strip()
+        except IndexError:
+            logging.warn('Bad Japanese: ' + text)
+            return ''
     else:
         return ' '.join(tokenizer(text))

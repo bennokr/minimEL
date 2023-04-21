@@ -44,7 +44,7 @@ make entity features
 
 6. Create training dataset 
 ```
-for q in "0.25" "0.5" "1"; do for s in "" "-stem"; do for f in "feat-clean-q1.p5"; do minimel -sv vectorize ../$WIKI-$VERSION-paragraph-links/ clean$s-q$q.json ${f:+--ent-feats-csv $f.csv} ${s:+-l $LANGCODE}; cat clean$s-q$q${f:+.$f}.parts/* > clean$s-q$q${f:+.$f}.dat && rm -r clean$s-q$q${f:+.$f}.parts; done; done; done
+for q in "0.25" "0.5" "1"; do for s in "" "-stem"; do for f in "" "feat-clean-q1.p5"; do minimel -sv vectorize ../$WIKI-$VERSION-paragraph-links/ clean$s-q$q.json ${f:+--ent-feats-csv $f.csv} ${s:+-l $LANGCODE}; cat clean$s-q$q${f:+.$f}.parts/* > clean$s-q$q${f:+.$f}.dat && rm -r clean$s-q$q${f:+.$f}.parts; done; done; done
 ```
 
 7. Train models
