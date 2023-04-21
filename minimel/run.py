@@ -11,9 +11,7 @@ import dawg
 import tqdm
 import pandas as pd
 import numpy as np
-import scipy.sparse
 from vowpalwabbit import pyvw
-from sklearn.metrics import precision_recall_fscore_support
 
 from .normalize import normalize
 from .vectorize import hashvec, transform, embed, vectorize, vw_tok
@@ -32,6 +30,8 @@ def vectorize_text(texts, vectorizer=None, dim=None):
 
 
 def get_scores(golds, preds):
+    from sklearn.metrics import precision_recall_fscore_support
+
     gold, pred = zip(
         *(
             ((gs or {}).get(surface, -1) or -1, (ps or {}).get(surface, -1) or -1)

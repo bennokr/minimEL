@@ -1,6 +1,12 @@
 sphinxcontrib-apidoc
-dask
+myst-parser
+mwparserfromhell
+dask[distributed]
+pandas
+defopt
+regex
 tqdm
 dawg
 mecab-python3
 unidic-lite
+vowpalwabbit

@@ -1,7 +1,11 @@
-scikit-learn
-fasttext
-dask
+mwparserfromhell
+dask[distributed]
+pandas
+defopt
+regex
 tqdm
 dawg
 mecab-python3
 unidic-lite
+vowpalwabbit
+seaborn

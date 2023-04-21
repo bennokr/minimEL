@@ -12,7 +12,6 @@ import pickle
 import json
 
 import dawg
-import scipy.sparse
 import tqdm
 import pandas as pd
 import numpy as np
