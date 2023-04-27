@@ -9,7 +9,7 @@ import json
 import logging
 
 def load_annotations(fname, wm):
-    g = rdflib.Graph().load(fname, format='turtle')
+    g = rdflib.Graph().parse(fname, format='turtle')
     nif = rdflib.Namespace('http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#')
     itsrdf = rdflib.Namespace('http://www.w3.org/2005/11/its/rdf#')
 
@@ -33,7 +33,7 @@ def run(*cmd, cwd=None):
         for line in p.stdout:
             print(line, end='')
     if p.returncode:
-        raise subprocess.CalledProcessError(p.returncode, p.args))
+        raise subprocess.CalledProcessError(p.returncode, p.args)
 
 if __name__ == '__main__':
     
