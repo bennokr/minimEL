@@ -2,8 +2,8 @@ from flask import Flask, request
 import dawg
 
 lang_trie = {
-    'nl': 'nlwiki-20211120.count.min2.salient.completiondawg',
-    'simple': 'simplewiki-20211120.count.min2.salient.completiondawg',
+    'nl': '../data/nlwiki-20211120.count.min2.salient.completiondawg',
+    'simple': '../data/simplewiki-20211120.count.min2.salient.completiondawg',
 }
 
 app = Flask(__name__)
@@ -25,7 +25,7 @@ function link() {
     lang = document.getElementById('lang').value;
     document.getElementById('spinner').style.visibility = 'visible';
 
-    fetch('/el?' + new URLSearchParams({text: text, lang:lang}))
+    fetch('el?' + new URLSearchParams({text: text, lang:lang}))
     .then(response => response.text()).then(data => {
         document.getElementById('result').innerHTML = data;
         document.getElementById('spinner').style.visibility = 'hidden';
@@ -34,7 +34,7 @@ function link() {
 </script>
 <body>
 <div id="main">
-    <h1>Minimal EL</h1>
+    <h1>Minimal EL hello world</h1>
     <p>
         <select id="lang">
             <option value=nl>Nederlands</option>
@@ -65,7 +65,7 @@ def make_links(surface_trie, text):
 
     offset, out = 0, ""
     for i,m in sorted(matches.items()):
-        if i > offset:
+        if i >= offset:
             comp = max(m, key=len).split()
             out += ' '.join(normtoks[offset:i])
             w = ' '.join(normtoks[i:i+len(comp)])
@@ -83,8 +83,6 @@ def el():
     ftrie = lang_trie[lang]
 
     surface_trie = dawg.CompletionDAWG()
-    surface_trie.load('/home/bennokr/minimel/' + ftrie)
+    surface_trie.load(ftrie)
 
     return make_links(surface_trie, text).replace('\n', '<br>')
-
-
