@@ -25,7 +25,7 @@ function link() {
     lang = document.getElementById('lang').value;
     document.getElementById('spinner').style.visibility = 'visible';
 
-    fetch('el?' + new URLSearchParams({text: text, lang:lang}))
+    fetch(window.location + '/el?' + new URLSearchParams({text: text, lang:lang}))
     .then(response => response.text()).then(data => {
         document.getElementById('result').innerHTML = data;
         document.getElementById('spinner').style.visibility = 'hidden';
