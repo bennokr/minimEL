@@ -1,10 +1,12 @@
 from flask import Flask, request
 import dawg
+import os
 
 lang_trie = {
     'nl': '../data/nlwiki-20211120.count.min2.salient.completiondawg',
     'simple': '../data/simplewiki-20211120.count.min2.salient.completiondawg',
 }
+basedir = os.path.dirname(os.path.realpath(__file__))
 
 app = Flask(__name__)
 
@@ -80,7 +82,7 @@ def el():
     text = request.args.get('text', '')
     lang = request.args.get('lang', None)
 
-    ftrie = lang_trie[lang]
+    ftrie = os.path.join(basedir, lang_trie[lang])
 
     surface_trie = dawg.CompletionDAWG()
     surface_trie.load(ftrie)
