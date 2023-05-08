@@ -7,11 +7,14 @@ import glob
 import logging
 from contextlib import redirect_stdout
 
-import dawg
 import tqdm
 import pandas as pd
 import numpy as np
 from vowpalwabbit import pyvw
+try:
+    import dawg
+except ImportError:
+    import dawg_python as dawg
 
 from .normalize import normalize
 from .vectorize import hashvec, transform, embed, vectorize, vw_tok

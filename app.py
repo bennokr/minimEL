@@ -1,5 +1,5 @@
 from flask import Flask, request
-import dawg
+import dawg_python as dawg
 import os
 
 lang_trie = {
@@ -27,7 +27,7 @@ function link() {
     lang = document.getElementById('lang').value;
     document.getElementById('spinner').style.visibility = 'visible';
 
-    fetch(window.location + '/el?' + new URLSearchParams({text: text, lang:lang}))
+    fetch(window.location.href.split(/[?#]/)[0] + '/el?' + new URLSearchParams({text: text, lang:lang}))
     .then(response => response.text()).then(data => {
         document.getElementById('result').innerHTML = data;
         document.getElementById('spinner').style.visibility = 'hidden';

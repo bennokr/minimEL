@@ -7,7 +7,10 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import sys, pathlib, argparse, logging, json, collections, re, html, itertools
 
-import dawg
+try:
+    import dawg
+except ImportError:
+    import dawg_python as dawg
 import pandas as pd
 from tqdm.auto import tqdm
 

@@ -5,14 +5,17 @@ import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-import pathlib, argparse, logging, re
+import pathlib, argparse, logging, re, json
 import os, re, codecs
 import xml.etree.cElementTree as cElementTree
 
-import dawg
 import mwparserfromhell
 import mwparserfromhell.nodes as nodes
-
+try:
+    import dawg
+except ImportError:
+    import dawg_python as dawg
+    
 from .scale import fileparts
 
 BADSTART = ["{{", "[", "|"]  # TODO: filter out paragraphs that are only links
@@ -76,8 +79,6 @@ def process_line(pagename, mwcode, index, skip=None):
 
 
 def get_anchor_paragraphs(lines, dawgfile, skip=[]):
-    import dawg, json
-
     index = dawg.IntDAWG()
     index.load(str(dawgfile))
     output = []

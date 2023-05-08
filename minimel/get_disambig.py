@@ -6,10 +6,13 @@ import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import sys, pathlib, argparse, logging, json
-import dawg
 import xml.etree.cElementTree as cElementTree
 
 import mwparserfromhell
+try:
+    import dawg
+except ImportError:
+    import dawg_python as dawg
 
 from .scale import fileparts
 
@@ -30,8 +33,6 @@ def get_list_links(page):
 
 
 def get_disambig_links(lines, dawgfile, disambig_ents_file):
-    import dawg
-
     index = dawg.IntDAWG()
     index.load(dawgfile)
 

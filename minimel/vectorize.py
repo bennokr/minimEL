@@ -11,7 +11,10 @@ import html
 import pickle
 import json
 
-import dawg
+try:
+    import dawg
+except ImportError:
+    import dawg_python as dawg
 import tqdm
 import pandas as pd
 import numpy as np

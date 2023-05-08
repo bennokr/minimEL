@@ -1,10 +1,14 @@
 """
 Convert Wikimapper index to IntDAWG.
 """
-import sqlite3, dawg, tqdm, pathlib, argparse, logging
+import sqlite3, pathlib, argparse, logging
+
+import tqdm
 
 
 def make_dawg(db_fname):
+    import dawg
+    
     db = sqlite3.connect(db_fname)
     title_id = {}
     rows = db.execute("select * from mapping")

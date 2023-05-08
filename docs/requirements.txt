@@ -6,7 +6,7 @@ pandas
 defopt
 regex
 tqdm
-dawg
+DAWG-Python
 mecab-python3
 unidic-lite
 vowpalwabbit
