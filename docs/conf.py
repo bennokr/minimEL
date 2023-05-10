@@ -63,3 +63,36 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = ['_static']
+
+
+### CLI docs
+print('Creating CLI docs...')
+import subprocess, re
+def run(cmd):
+    out = subprocess.run(cmd.split(), capture_output=True).stdout.decode()
+    return ''.join('\n\t'+l for l in out.splitlines())
+
+with open('cli.rst', 'w') as fw:
+    cli_doc = run("minimel -h")
+    print(f"""
+Command Line Interface
+======================
+
+.. code-block:: text
+
+    {cli_doc}
+
+""", file=fw)
+    for subcmd in next(re.finditer("\{[^}]+\}", cli_doc)).group()[1:-1].split(','):
+        sub_doc = run(f"minimel {subcmd} -h")
+        print(f"""
+{subcmd}
+{"^"*len(subcmd)}
+
+.. code-block:: text
+
+    {sub_doc}
+
+""", file=fw)
+    
+    

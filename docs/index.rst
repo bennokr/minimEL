@@ -1,17 +1,15 @@
 MinimEL Documentation
 =====================
 
+The ``minimEL`` package provides a framework to create and evaluate small Entity Linking models.
 
-.. toctree::
-   :hidden:
-
-   self
-   
 .. toctree::
    :maxdepth: 2
    :glob:
    :titlesonly:
+   :hidden:
    
+   cli
    api/minimel
    
 
