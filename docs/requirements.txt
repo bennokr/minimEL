@@ -1,4 +1,5 @@
 sphinxcontrib-apidoc
+sphinxcontrib-ansi
 myst-parser
 mwparserfromhell
 dask[distributed]

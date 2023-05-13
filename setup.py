@@ -17,13 +17,13 @@ setup(
         'defopt',
         'DAWG-Python',
         'pandas',
-    ]
+    ],
     extras_require = {
         'train': ['mwparserfromhell','dask[distributed]','DAWG', 'seaborn'],
         'stem': ['icu_tokenizer'],
         'ja': ['mecab-python3','unidic-lite'],
         'fa': ['PersianStemmer'],
         'demo': ['Flask'],
-        'docs': ['sphinxcontrib-apidoc','myst-parser'],
+        'docs': ['sphinxcontrib-apidoc','sphinxcontrib-ansi', 'myst-parser'],
     },
 )
