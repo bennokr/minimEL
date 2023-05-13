@@ -21,6 +21,7 @@ author = 'Benno Kruit'
 
 extensions = [
     'sphinxcontrib.apidoc',
+    'sphinxcontrib.ansi',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
@@ -78,7 +79,7 @@ with open('cli.rst', 'w') as fw:
 Command Line Interface
 ======================
 
-.. code-block:: text
+.. ansi-block::
 
     {cli_doc}
 
@@ -89,7 +90,7 @@ Command Line Interface
 {subcmd}
 {"^"*len(subcmd)}
 
-.. code-block:: text
+.. ansi-block::
 
     {sub_doc}
 

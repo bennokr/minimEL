@@ -6,7 +6,7 @@ import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import pathlib, argparse, logging
-import regex as re
+import re
 import html
 import pickle
 import json

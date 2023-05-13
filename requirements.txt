@@ -2,10 +2,10 @@ mwparserfromhell
 dask[distributed]
 pandas
 defopt
-regex
 tqdm
 DAWG-Python
 mecab-python3
 unidic-lite
 vowpalwabbit
 seaborn
+icu_tokenizer
