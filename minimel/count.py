@@ -26,7 +26,7 @@ def count_links(lines, stem=None, head=None):
         links = json.loads(links)
         for a, e in links.items():
             # Clean the anchor text before counting
-            for n in normalize(a, stem=stem):
+            for n in normalize(a, language=stem):
                 link_count[n][e] += 1
     return [(a, e, c) for a, cs in link_count.items() for e, c in cs.items()]
 
@@ -87,8 +87,8 @@ def count(paragraphlinks: pathlib.Path, *, min_count: int = 2, stem: str = None,
         
 
 def get_matches(surface_trie, text, stem=None):
-    # is normalize best here?
-    for normtext in normalize(text, stem=stem):
+    # TODO: is normalize best here?
+    for normtext in normalize(text, language=stem):
         normtoks = normtext.split()
         for i,tok in enumerate(normtoks):
             for comp in surface_trie.keys(tok):
@@ -110,7 +110,7 @@ def count_surface(paragraphlinks: pathlib.Path, countfile: pathlib.Path, *, stem
     """
     Count anchor texts in Wikipedia paragraphs.
 
-    Writes `word{count}[.stem-{LANG}].json`
+    Writes `word{countfile}[.stem-{LANG}].json`
 
     Args:
         paragraphlinks: Directory of (pagetitle, links-json, paragraph) .tsv files

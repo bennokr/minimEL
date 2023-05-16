@@ -2,3 +2,4 @@ sphinxcontrib-apidoc
 sphinxcontrib-ansi
 sphinx-mdinclude
 myst-parser
+sphinx-autodoc-typehints
