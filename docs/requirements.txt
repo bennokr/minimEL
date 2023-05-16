@@ -1,13 +1,4 @@
 sphinxcontrib-apidoc
 sphinxcontrib-ansi
+sphinx-mdinclude
 myst-parser
-mwparserfromhell
-dask[distributed]
-pandas
-defopt
-regex
-tqdm
-DAWG-Python
-mecab-python3
-unidic-lite
-vowpalwabbit

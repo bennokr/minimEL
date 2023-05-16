@@ -31,7 +31,7 @@ if __name__ == "__main__":
         params={"query": query},
         headers={
             "Accept": "text/csv",
-            "user-agent": "vu-amsterdam-entity-linking/0.0.1",
+            "user-agent": "github.com/bennokr/minimel/0.0.1",
         },
     )
     if response.ok:

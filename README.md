@@ -1,6 +1,6 @@
-# Minimalist Entity Linking
+# MinimEL: Minimalist Entity Linking
 
-
+The `minimel` package provides a framework to create and evaluate small Entity Linking models.
 
 ## Evaluation Datasets
 

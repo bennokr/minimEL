@@ -19,19 +19,19 @@ tqdm.pandas()
 from .normalize import normalize
 from minimel.vectorize import vw_tok
 
-def count_links(lines, language=None):
+def count_links(lines, stem=None, head=None):
     link_count = collections.defaultdict(collections.Counter)
-    for line in lines:
+    for line in itertools.islice(lines, 0, head):
         pagetitle, links, paragraph = line.split("\t", 2)
         links = json.loads(links)
         for a, e in links.items():
             # Clean the anchor text before counting
-            for n in normalize(a, language=language):
+            for n in normalize(a, stem=stem):
                 link_count[n][e] += 1
     return [(a, e, c) for a, cs in link_count.items() for e, c in cs.items()]
 
 
-def count(paragraphlinks: pathlib.Path, *, min_count: int = 2, language: str = None):
+def count(paragraphlinks: pathlib.Path, *, min_count: int = 2, stem: str = None, head: int = None):
     """
     Count targets per anchor text in Wikipedia paragraphs.
 
@@ -42,20 +42,21 @@ def count(paragraphlinks: pathlib.Path, *, min_count: int = 2, language: str = N
 
     Keyword Arguments:
         min_count: Minimal (anchor-text, target) occurrence
-        language: Language code for tokenization & stemming
+        stem: Language code for tokenization & stemming
+        head: Use only N first lines from each partition
     """
 
     import dask.bag as db
     from .scale import progress, get_client
     
-    if language:
-        logging.info(f"Snowball stemming for language: {language}")
+    if stem:
+        logging.info(f"Snowball stemming for language: {stem}")
 
     with get_client():
 
         bag = db.read_text(str(paragraphlinks) + "/*", files_per_partition=3)
         counts = (
-            bag.map_partitions(count_links, language=language)
+            bag.map_partitions(count_links, stem=stem, head=head)
             .to_dataframe(meta={'a':str, 'e':int, 'c':int})
             .groupby(["a", "e"])["c"].sum(split_out=32)
             .persist()
@@ -78,16 +79,16 @@ def count(paragraphlinks: pathlib.Path, *, min_count: int = 2, language: str = N
         if logging.root.level < 30:
             progress(a_e_count.persist(), out=sys.stderr)
         
-        stem = f'-stem' if language else ''
-        outfile = paragraphlinks.parent / f"count.min{min_count}{stem}.json"
+        s = f'-stem' if stem else ''
+        outfile = paragraphlinks.parent / f"count.min{min_count}{s}.json"
         logging.info(f"Writing to {outfile}")
         a_e_count.compute().to_json(outfile)
 
         
 
-def get_matches(surface_trie, text, language=None):
+def get_matches(surface_trie, text, stem=None):
     # is normalize best here?
-    for normtext in normalize(text, language=language):
+    for normtext in normalize(text, stem=stem):
         normtoks = normtext.split()
         for i,tok in enumerate(normtoks):
             for comp in surface_trie.keys(tok):
@@ -95,17 +96,17 @@ def get_matches(surface_trie, text, language=None):
                 if normtoks[i:i+len(comp_toks)] == comp_toks:
                     yield comp
 
-def count_surface_lines(lines, countfile, language=None, head=None):
+def count_surface_lines(lines, countfile, stem=None, head=None):
     surfaces = json.load(open(countfile))
     surface_trie = dawg.CompletionDAWG(surfaces)
     counts = collections.Counter()
     for line in itertools.islice(lines, 0, head):
         _, _, text = line.split('\t', 2)
-        counts.update(get_matches(surface_trie, text, language=language))
+        counts.update(get_matches(surface_trie, text, stem=stem))
     return list(counts.items())
         
 
-def count_surface(paragraphlinks: pathlib.Path, countfile: pathlib.Path, *, language: str = None, head: int = None):
+def count_surface(paragraphlinks: pathlib.Path, countfile: pathlib.Path, *, stem: str = None, head: int = None):
     """
     Count anchor texts in Wikipedia paragraphs.
 
@@ -116,20 +117,21 @@ def count_surface(paragraphlinks: pathlib.Path, countfile: pathlib.Path, *, lang
         countfile: Hyperlink anchor count JSON file
 
     Keyword Arguments:
-        language: Language code for tokenization & stemming
+        stem: Language code for tokenization & stemming
+        head: Use only N first lines from each partition
     """
 
     import dask.bag as db
     from .scale import progress, get_client
     
-    if language:
-        logging.info(f"Snowball stemming for language: {language}")
+    if stem:
+        logging.info(f"Snowball stemming for language: {stem}")
 
     with get_client():
 
         bag = db.read_text(str(paragraphlinks) + "/*", files_per_partition=3)
         counts = (
-            bag.map_partitions(count_surface_lines, countfile, language=language, head=head)
+            bag.map_partitions(count_surface_lines, countfile, stem=stem, head=head)
             .to_dataframe(meta={'surface':str, 'c':int})
             .groupby("surface")["c"].sum(split_out=32)
             .persist()
@@ -145,7 +147,7 @@ def count_surface(paragraphlinks: pathlib.Path, countfile: pathlib.Path, *, lang
         if logging.root.level < 30:
             progress(counts.persist(), out=sys.stderr)
         
-        stem = f'-stem' if language else ''
+        stem = f'-stem' if stem else ''
         outfile = paragraphlinks.parent / f"word{countfile.stem}{stem}.json"
         logging.info(f"Writing to {outfile}")
         counts.compute().to_json(outfile)

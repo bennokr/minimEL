@@ -27,8 +27,11 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
+    'sphinx_autodoc_typehints',
     'sphinx_rtd_theme',
-    'myst_parser',
+    'sphinx_mdinclude',
+    'nbsphinx',
+    'sphinx.ext.mathjax',
 ]
 
 # Apidoc and autodoc config
@@ -85,6 +88,7 @@ Command Line Interface
 
 """, file=fw)
     for subcmd in next(re.finditer("\{[^}]+\}", cli_doc)).group()[1:-1].split(','):
+        print(subcmd)
         sub_doc = run(f"minimel {subcmd} -h")
         print(f"""
 {subcmd}

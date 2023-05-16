@@ -1,7 +1,5 @@
-MinimEL Documentation
-=====================
+.. mdinclude:: ../README.md
 
-The ``minimEL`` package provides a framework to create and evaluate small Entity Linking models.
 
 .. toctree::
    :maxdepth: 2

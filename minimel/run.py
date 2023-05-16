@@ -18,7 +18,7 @@ except ImportError:
 
 from .normalize import normalize
 from .vectorize import hashvec, transform, embed, vectorize, vw_tok
-from .train import train
+
 
 def vectorize_text(texts, vectorizer=None, dim=None):
     if not vectorizer:
@@ -233,85 +233,3 @@ def evaluate(
         print(pd.DataFrame(scores).T)
     else:
         return pd.DataFrame(scores).T
-    
-def experiment(
-    dawgfile: pathlib.Path,
-    filtered_counts_file: pathlib.Path,
-    infile: pathlib.Path,
-    root: pathlib.Path = pathlib.Path('.'),
-    *,
-    vectorizers: typing.List[pathlib.Path] = (),
-    stem: str = None, # TODO
-    countfile: pathlib.Path = None,
-):
-    """
-    Run experiment
-    """
-    if not countfile:
-        countfile = (root / f'{filtered_counts_file.stem.rsplit(".", 1)[0]}.json')
-    logging.info(f'Using count file {countfile}')
-    
-    predfiles = []
-    models_vectorizers = [(None,None)]
-    filt = filtered_counts_file.stem
-    ext = 'vw'
-    
-    # Create feature hashing model
-    dim = 2**18
-    for bal in [False]:#, True]:
-        b = '.bal' if bal else ''
-        hash_filestem = f'{filt}.hash{dim}{b}'
-        hashmodelfile = pathlib.Path(f'{hash_filestem}.{ext}')
-        if not list(glob.glob(hash_filestem + '*.dat')):
-            logging.info(f'No vectors {hash_filestem}*.dat, creating...')
-            hash_file = vectorize(paragraphlinks_dir, filtered_counts_file, dim=dim, balanced=bal)
-        else:
-            hash_file = list(glob.glob(hash_filestem + '*.dat'))[0]
-        if not hashmodelfile.exists():
-            logging.info(f'No model {hashmodelfile}, creating...')
-            train(filtered_counts_file, hash_file)
-        models_vectorizers.append( (hashmodelfile, None) )
-
-    # Create custom vectorizer models
-    for vec in vectorizers:
-        for bal in [False]:#, True]:
-            b = '.bal' if bal else ''
-            vec_filestem = f'{filt}.{vec.stem}{b}'
-            vecmodelfile = pathlib.Path(f'{vec_filestem}.{ext}')
-            if not list(glob.glob(vec_filestem + '*.dat')):
-                logging.info(f'No vectors {vec_filestem}*.dat, creating...')
-                vec_file = vectorize(paragraphlinks_dir, filtered_counts_file, vectorizer=vec, balanced=bal)
-            else:
-                vec_file = list(glob.glob(vec_filestem + '*.dat'))[0]
-            if not vecmodelfile.exists():
-                logging.info(f'No model {vecmodelfile}, creating...')
-                train(filtered_counts_file, vec_file)
-            models_vectorizers.append( (vecmodelfile, vec) )
-
-    for count_arg in (None, countfile):
-        for modelfile, vectorizer in models_vectorizers:
-            outfile = 'pred-mewsli-'
-            if modelfile:
-                outfile += modelfile.stem
-            else:
-                outfile += 'base'
-            outfile += ('-' + count_arg.stem) if count_arg else ''
-            outfile += '.tsv'
-            predfiles.append( pathlib.Path(outfile) )
-            logging.info(f'Writing to {outfile}')
-            with open(outfile, 'w') as f, redirect_stdout(f):
-                run(
-                    dawgfile,
-                    filtered_counts_file,
-                    modelfile,
-                    infile,
-                    vectorizer=vectorizer,
-                    lang=stem,
-                    countfile=count_arg,
-                    predict_only=True,
-                )
-    
-    evaluate(
-        infile,
-        *sorted(predfiles),
-    )

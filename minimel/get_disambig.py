@@ -36,7 +36,7 @@ def get_disambig_links(lines, dawgfile, disambig_ents_file):
     index = dawg.IntDAWG()
     index.load(dawgfile)
 
-    disambigs = set(
+    wikidata_disambigfile = set(
         int(q.replace("Q", "")) for q in open(disambig_ents_file).readlines()
     )
     output = []
@@ -46,7 +46,7 @@ def get_disambig_links(lines, dawgfile, disambig_ents_file):
         title = elem.find("./title").text.replace(" ", "_")
         text = elem.find("./revision/text").text
 
-        if index.get(title) in disambigs:
+        if index.get(title) in wikidata_disambigfile:
             links = set()
             for link in get_list_links(text):
                 link = link.replace(" ", "_")
@@ -60,7 +60,7 @@ def get_disambig_links(lines, dawgfile, disambig_ents_file):
 def get_disambig(
     wikidump: pathlib.Path,
     dawgfile: pathlib.Path,
-    disambigs: pathlib.Path,
+    wikidata_disambigfile: pathlib.Path,
     *,
     nparts: int = 1000,
 ):
@@ -72,7 +72,7 @@ def get_disambig(
     Args:
         wikidump: Wikipedia XML dump file
         dawgfile: DAWG trie file of Wikipedia > Wikidata mapping
-        disambigs: Flat text file with Wikidata Q.. per line of disambiguation pages
+        wikidata_disambigfile: Flat text file of disambiguation pages with one Wikidata Q.. per line
 
     Keyword Arguments:
         nparts: Number of chunks to read
@@ -88,8 +88,9 @@ def get_disambig(
         )
 
         links = bag.map_partitions(
-            lambda b: get_disambig_links(b, str(dawgfile), str(disambigs))
+            lambda b: get_disambig_links(b, str(dawgfile), str(wikidata_disambigfile))
         )
+        logging.info(f'Extracting disambiguation links...')
         if logging.root.level < 30:
             progress(links.persist(), out=sys.stderr)
         else:
