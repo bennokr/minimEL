@@ -45,7 +45,7 @@ def main():
             from dask_jobqueue import SLURMCluster
 
             try:
-                client = Client('tcp://localhost:8883', timeout='5s')
+                client = Client("tcp://localhost:8883", timeout="5s")
             except (TimeoutError, OSError):
                 logging.info("Setting up SLURM cluster...")
                 cluster = SLURMCluster(

@@ -3,7 +3,7 @@ Filter anchor counts
 """
 import math, collections, itertools
 import json, sqlite3, tqdm, re, html
-import sys, pathlib, argparse, logging
+import sys, pathlib, argparse, logging, typing
 
 from .normalize import normalize
 
@@ -90,10 +90,11 @@ def clean(
     disambigfile: pathlib.Path,
     countfile: pathlib.Path,
     *,
-    lang: str = None,
+    outfile: pathlib.Path = None,
+    stem: str = None,
     freqnorm: bool = False,
     badentfile: pathlib.Path = None,
-    mincount: int = 2,
+    min_count: int = 2,
     tokenscore_threshold: float = 0.1,
     entropy_threshold: float = 1.0,
     countratio_threshold: float = 0.5,
@@ -107,7 +108,7 @@ def clean(
     If the tokenscore is low, then surfaceforms with high entropy or countratio
     (len / sum) are removed.
 
-    Writes `filtered_counts.{n_good_counts}.json`
+    Writes `clean.json`
 
     Args:
         indexdbfile: Wikimapper index sqlite3 database
@@ -115,10 +116,11 @@ def clean(
         countfile: Hyperlink anchor count {word: {Q_ent: count}} JSON file
 
     Keyword Arguments:
-        lang: Stemming language ISO 639-1 (2-letter) code
+        outfile: Output file
+        stem: Stemming language ISO 639-1 (2-letter) code
+        min_count: Minimal candidate entity count
         freqnorm: Normalize counts by total entity frequency
-        badentfile: Entity IDs to ignore, one per line
-        mincount: Minimal candidate entity count
+        badentfile: Files of entity IDs to ignore, one per line
         tokenscore_threshold: Threshold for mean asymmentric Jaccard index
             between surface form and candidate entity labels
         entropy_threshold: Entropy threshold (high entropy = flat dist)
@@ -132,18 +134,18 @@ def clean(
     if logging.root.level < 30:
         ss = tqdm.tqdm(ss, desc="Counting entities...")
     for s, ec in ss:
-        ec = {int(e[1:]):c for e, c in ec.items()}
-        for e,c in ec.items():
+        ec = {int(e[1:]): c for e, c in ec.items()}
+        for e, c in ec.items():
             total_ent_count[e] += c
         surface_ent_counts[s] = collections.Counter(ec)
-    
+
     disambig_surfaceforms = set()
     for s, es in json.load(open(disambigfile)).items():
-        for n in normalize(s, language=lang):
+        for n in normalize(s, language=stem):
             disambig_surfaceforms.add(n)
             for e in es:
                 surface_ent_counts.setdefault(n, collections.Counter())[e] += 1
-    
+
     # Filter out bad entities
     ents = set(total_ent_count)
     badents = set(int(q.replace("Q", "")) for q in open(badentfile).readlines())
@@ -152,18 +154,19 @@ def clean(
     for a, ec in surface_ent_counts.items():
         norm = {}
         if freqnorm:
-            norm = {e:total_ent_count.get(e,1) for e in ec}
+            norm = {e: total_ent_count.get(e, 1) for e in ec}
             maxnorm = max(norm.values())
-            norm = {e:c / maxnorm for e,c in norm.items()}
+            norm = {e: c / maxnorm for e, c in norm.items()}
         surface_ent_counts[a] = {
-            e: int(c * norm.get(e, 1))+1
-            for e, c in ec.items() 
-            if e in ents and c >= mincount
+            e: int(c * norm.get(e, 1)) + 1
+            for e, c in ec.items()
+            if e in ents and c >= min_count
         }
-    surface_ent_counts = {s:ec for s,ec in surface_ent_counts.items() if ec}
+    surface_ent_counts = {s: ec for s, ec in surface_ent_counts.items() if ec}
 
     title_ids, id_titles = get_titles(
-        str(indexdbfile), ents, set(surface_ent_counts), language=lang)
+        str(indexdbfile), ents, set(surface_ent_counts), language=stem
+    )
 
     # Collect bad surface forms
     high_entropy, high_countratio, no_tokenmatch = set(), set(), set()
@@ -196,20 +199,24 @@ def clean(
         if s not in bad_surfaceforms and ec
     }
     logging.info(f"Keeping {len(good_counts)} good surfaceforms")
-    
+
     if shadowed_top:
         top_counts, shadow_counts = {}, []
         for s, ec in good_counts.items():
             if len(ec) > 1:
                 top, *shadow = ec.items()
                 top_counts[s] = top
-                for e,c in shadow:
-                    shadow_counts.append( (c, s, e) )
+                for e, c in shadow:
+                    shadow_counts.append((c, s, e))
         good_counts = {}
         shadowed_topn = int(shadowed_top * len(shadow_counts))
-        for c,s,e in sorted(shadow_counts)[::-1][:shadowed_topn]:
+        for c, s, e in sorted(shadow_counts)[::-1][:shadowed_topn]:
             te, tc = top_counts[s]
             good_counts.setdefault(s, {})[te] = tc
             good_counts[s][e] = c
-
-    print(json.dumps(good_counts))
+    
+    if outfile.is_dir():
+        outfile = outfile / 'clean.json'
+    logging.info(f"Writing to {outfile}")
+    with outfile.open('w') as fw:
+        json.dump(good_counts, fw)

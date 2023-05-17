@@ -9,6 +9,7 @@ import sys, pathlib, argparse, logging, json
 import xml.etree.cElementTree as cElementTree
 
 import mwparserfromhell
+
 try:
     import dawg
 except ImportError:
@@ -82,7 +83,6 @@ def get_disambig(
     from .scale import progress, get_client
 
     with get_client():
-
         bag = db.from_sequence(range(nparts), npartitions=nparts).map_partitions(
             fileparts, wikidump, nparts, "<page>", "</page>"
         )
@@ -90,7 +90,7 @@ def get_disambig(
         links = bag.map_partitions(
             lambda b: get_disambig_links(b, str(dawgfile), str(wikidata_disambigfile))
         )
-        logging.info(f'Extracting disambiguation links...')
+        logging.info(f"Extracting disambiguation links...")
         if logging.root.level < 30:
             progress(links.persist(), out=sys.stderr)
         else:

@@ -10,7 +10,7 @@ def progress(*args, **kwargs):
     start = time.time()
     p = dask.distributed.progress(*args, **kwargs)
     end = time.time()
-    logging.info(f'Finished in {int(end - start)}s')
+    logging.info(f"Finished in {int(end - start)}s")
     return p
 
 

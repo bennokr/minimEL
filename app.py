@@ -3,14 +3,15 @@ import dawg_python as dawg
 import os
 
 lang_trie = {
-    'nl': '../data/nlwiki-20211120.count.min2.salient.completiondawg',
-    'simple': '../data/simplewiki-20211120.count.min2.salient.completiondawg',
+    "nl": "../data/nlwiki-20211120.count.min2.salient.completiondawg",
+    "simple": "../data/simplewiki-20211120.count.min2.salient.completiondawg",
 }
 basedir = os.path.dirname(os.path.realpath(__file__))
 
 app = Flask(__name__)
 
-@app.route('/')
+
+@app.route("/")
 def hello_world():
     return """
 <!DOCTYPE html>
@@ -51,40 +52,42 @@ function link() {
 </html>
     """
 
+
 def get_matches(surface_trie, text):
     normtoks = text.lower().split()
-    for i,tok in enumerate(normtoks):
+    for i, tok in enumerate(normtoks):
         for comp in surface_trie.keys(tok):
             comp_toks = comp.lower().split()
-            if normtoks[i:i+len(comp_toks)] == comp_toks:
+            if normtoks[i : i + len(comp_toks)] == comp_toks:
                 yield i, comp
+
 
 def make_links(surface_trie, text):
     normtoks = text.split()
     matches = {}
-    for i,m in get_matches(surface_trie, text):
+    for i, m in get_matches(surface_trie, text):
         matches.setdefault(i, set()).add(m)
 
     offset, out = 0, ""
-    for i,m in sorted(matches.items()):
+    for i, m in sorted(matches.items()):
         if i >= offset:
             comp = max(m, key=len).split()
-            out += ' '.join(normtoks[offset:i])
-            w = ' '.join(normtoks[i:i+len(comp)])
+            out += " ".join(normtoks[offset:i])
+            w = " ".join(normtoks[i : i + len(comp)])
             out += f' <a href="#{i}">{w}</a> '
             offset = i + len(comp)
-    out += ' '.join(normtoks[offset:])
+    out += " ".join(normtoks[offset:])
     return out
 
 
-@app.route('/el')
+@app.route("/el")
 def el():
-    text = request.args.get('text', '')
-    lang = request.args.get('lang', None)
+    text = request.args.get("text", "")
+    lang = request.args.get("lang", None)
 
     ftrie = os.path.join(basedir, lang_trie[lang])
 
     surface_trie = dawg.CompletionDAWG()
     surface_trie.load(ftrie)
 
-    return make_links(surface_trie, text).replace('\n', '<br>')
+    return make_links(surface_trie, text).replace("\n", "<br>")

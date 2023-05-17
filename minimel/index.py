@@ -8,7 +8,7 @@ import tqdm
 
 def make_dawg(db_fname):
     import dawg
-    
+
     db = sqlite3.connect(db_fname)
     title_id = {}
     rows = db.execute("select * from mapping")

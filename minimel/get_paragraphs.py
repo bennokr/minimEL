@@ -11,11 +11,12 @@ import xml.etree.cElementTree as cElementTree
 
 import mwparserfromhell
 import mwparserfromhell.nodes as nodes
+
 try:
     import dawg
 except ImportError:
     import dawg_python as dawg
-    
+
 from .scale import fileparts
 
 BADSTART = ["{{", "[", "|"]  # TODO: filter out paragraphs that are only links
@@ -111,7 +112,6 @@ def get_paragraphs(
     from .scale import progress, get_client
 
     with get_client():
-
         bag = db.from_sequence(range(nparts), npartitions=nparts).map_partitions(
             fileparts, wikidump, nparts, "<page>", "</page>"
         )

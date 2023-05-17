@@ -7,9 +7,9 @@
    :titlesonly:
    :hidden:
    
+   notebooks/*
    cli
    api/minimel
-   
 
 
 

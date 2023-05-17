@@ -11,6 +11,7 @@ import tqdm
 import pandas as pd
 import numpy as np
 from vowpalwabbit import pyvw
+
 try:
     import dawg
 except ImportError:
@@ -55,6 +56,7 @@ def get_scores(golds, preds):
     res.loc[("", "support")] = len(gold)
     return res
 
+
 def run(
     dawgfile: pathlib.Path,
     candidatefile: pathlib.Path = None,
@@ -89,21 +91,23 @@ def run(
         upperbound: Create upper bound on performance
     """
     if (not infile) or (infile == "-"):
-        infile = (sys.stdin, )
-    logging.debug(f'Reading from {infile}')
-    
+        infile = (sys.stdin,)
+    logging.debug(f"Reading from {infile}")
+
     index = dawg.IntDAWG()
     index.load(str(dawgfile))
 
     candidates = json.load(candidatefile.open()) if candidatefile else {}
     count = json.load(countfile.open()) if countfile else {}
-    
+
     ent_feats = None
     if ent_feats_csv:
-        ent_feats = pd.read_csv(ent_feats_csv, header=None, index_col=0, na_values='')[1]
-        ent_feats = ent_feats.fillna('')
-        logging.info(f'Loaded {len(ent_feats)} entity features')
-    
+        ent_feats = pd.read_csv(ent_feats_csv, header=None, index_col=0, na_values="")[
+            1
+        ]
+        ent_feats = ent_feats.fillna("")
+        logging.info(f"Loaded {len(ent_feats)} entity features")
+
     model = None
     if candidatefile and modelfile:
         model = pyvw.Workspace(
@@ -125,23 +129,22 @@ def run(
         data[1] = data[1].map(json.loads)
         ids, ents, texts = data[0], data[1], data[2]
 
-    
     def model_predict(model, text, norm, ents, ent_feats=None, score=False):
         # TODO: replace with vectorize.vw!!!
         preds = {}
         ents = list(ents)
-        toks = 'shared |s ' + ' '.join(vw_tok(text))
-        ns = '_'.join(vw_tok(norm))
-        for i,ent in enumerate(ents):
-            efeats = str(ent_feats.get(l, '')) if (ent_feats is not None) else ''
-            efeats = '|f ' + efeats if efeats else ''
-            cands = [f'{e} |l {ns}={e} {efeats}' for e in ents[i:] + ents[:i]]
+        toks = "shared |s " + " ".join(vw_tok(text))
+        ns = "_".join(vw_tok(norm))
+        for i, ent in enumerate(ents):
+            efeats = str(ent_feats.get(l, "")) if (ent_feats is not None) else ""
+            efeats = "|f " + efeats if efeats else ""
+            cands = [f"{e} |l {ns}={e} {efeats}" for e in ents[i:] + ents[:i]]
             preds[ent] = model.predict([toks] + cands)
         if score:
             return preds
         else:
             return max(preds.items(), key=lambda x: x[1])[0]
-    
+
     preds = []
     it = tqdm.tqdm(texts, "Predicting") if logging.root.level < 30 else texts
     for i, text in enumerate(it):
@@ -161,8 +164,9 @@ def run(
                     for norm in normalize(surface, language=lang):
                         ent_cand = candidates.get(norm, None)
                         if ent_cand and model:
-                            pred = model_predict(model, text, norm, ent_cand,
-                                                score = score_only)
+                            pred = model_predict(
+                                model, text, norm, ent_cand, score=score_only
+                            )
                         elif norm in count:
                             dist = count[norm]
                             pred = max(dist, key=lambda x: dist[x])
@@ -172,9 +176,9 @@ def run(
                     if score_only:
                         if type(pred) != dict:
                             pred = {pred: 1}
-                        pred = {f'Q{p}': s for p,s in pred.items()}
+                        pred = {f"Q{p}": s for p, s in pred.items()}
                     else:
-                        pred = int(str(pred).replace('Q',''))
+                        pred = int(str(pred).replace("Q", ""))
                     ent_pred[surface] = pred
         if not evaluate:
             if predict_only or score_only:
@@ -187,11 +191,12 @@ def run(
                     print(ids[i], json.dumps(ent_pred), text, sep="\t")
                 else:
                     print(json.dumps(ent_pred), text, sep="\t")
-            
+
         preds.append(ent_pred)
 
     if len(ents) and evaluate:
         print(get_scores(ents, preds).T.to_csv())
+
 
 def evaluate(
     goldfile: pathlib.Path,
@@ -200,36 +205,37 @@ def evaluate(
 ):
     """
     Evaluate predictions
-    
+
     Args:
         gold: Gold data TSV
         pred: Prediction TSVs
-    
+
     Keyword Arguments:
         agg: Aggregation jsons (TODO: depend on data...?)
-    
+
     """
     data = pd.read_csv(str(goldfile), sep="\t", header=None)
     assert data.shape[1] > 1
     gold = data[0] if data.shape[1] == 2 else data.set_index(0)[1]
     gold = gold.map(json.loads)
-        
+
     scores = {}
-    for predfile in tqdm.tqdm(predfiles, 'Evaluating'):
+    for predfile in tqdm.tqdm(predfiles, "Evaluating"):
         data = pd.read_csv(str(predfile), sep="\t", header=None)
         pred = data[0] if data.shape[1] == 1 else data.set_index(0)[1]
-        pred = pred.fillna('{}').map(json.loads)
-        
-        pred = pred.map(lambda x: x if not type(x)==float else {} )
-        gold = gold.map(lambda x: x if not type(x)==float else {} )
-        
-        preddf = pd.DataFrame({'gold':gold, 'pred':pred })
+        pred = pred.fillna("{}").map(json.loads)
+
+        pred = pred.map(lambda x: x if not type(x) == float else {})
+        gold = gold.map(lambda x: x if not type(x) == float else {})
+
+        preddf = pd.DataFrame({"gold": gold, "pred": pred})
         import numpy as np
+
         preddf = preddf.replace([np.nan], [None])
         scores[predfile.stem] = get_scores(preddf.gold, preddf.pred)
-        
-    if 'defopt' in sys.modules:
-        pd.set_option('display.max_colwidth', None)
+
+    if "defopt" in sys.modules:
+        pd.set_option("display.max_colwidth", None)
         print(pd.DataFrame(scores).T)
     else:
         return pd.DataFrame(scores).T
