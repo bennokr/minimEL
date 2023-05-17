@@ -6,6 +6,8 @@ import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import pathlib, argparse, logging
+import itertools
+import shutil
 import re
 import html
 import pickle
@@ -34,25 +36,27 @@ def vw_tok(text):
 
 def vw(
     lines,
-    anchor_json: pathlib.Path,
+    surface_count_json: pathlib.Path,
     ent_feats_csv=None,
     balanced=False,
     language=False,
     usenil=False,
+    head=None,
 ):
     """Create VW-formatted training data
 
     Args:
         lines: iterable of (pageid, {name: entityid} json, text) tsv lines
-        anchor_json: path to json file of {name: {entityid: weight}}
+        surface_count_json: path to json file of {name: {entityid: weight}}
         ent_feats_csv: path to csv of (entityid,feat1 feat2 feat3 ...)
 
     """
-    surface_weights = json.load(anchor_json.open())
+    surface_weights = json.load(surface_count_json.open())
     surface_weights = {
         m: {int(e.replace("Q", "")): c for e, c in ec.items()}
         for m, ec in surface_weights.items()
     }
+    logging.debug(f"Loaded {len(surface_weights)} surface weights")
 
     if usenil:
         # Make surfaceform lookup trie
@@ -65,7 +69,7 @@ def vw(
             1
         ]
         ent_feats = ent_feats.fillna("")
-        logging.info(f"Loaded {len(ent_feats)} entity features")
+        logging.debug(f"Loaded {len(ent_feats)} entity features")
 
     def vw_label_lines(weights, e, norm, ent_feats=None):
         if len(weights) > 1:
@@ -81,7 +85,7 @@ def vw(
                 yield f"{l}:{w} |l {ns}={l} {efeats}"
 
     outlines = []
-    for line in lines:
+    for line in itertools.islice(lines, 0, head):
         pgid, mention_ent, text = line.split("\t", 2)
         try:
             mention_ent = json.loads(mention_ent)
@@ -119,6 +123,7 @@ def vw(
         if labels:
             outlines += [f"shared |s " + " ".join(tokens)] + labels + [""]
     outlines.append("")
+    logging.info(f"Found {len(outlines)} training instances")
     return outlines
 
 
@@ -174,41 +179,59 @@ def embed(paragraphs, embeddingsfile, dim=None):
 
 def vectorize(
     paragraphlinks: pathlib.Path,
-    anchor_json: pathlib.Path,
+    surface_count_json: pathlib.Path,
     *,
+    outfile: pathlib.Path = None,
+    head: int = None,
+    stem: str = None,
     vectorizer: pathlib.Path = None,
     ent_feats_csv: pathlib.Path = None,
-    lang: str = None,
     balanced: bool = False,
+    usenil: bool = False,
 ):
     """
     Vectorize paragraph text dataset into Vowpal Wabbit format
 
     Args:
         paragraphlinks: Paragraph links directory
-        anchor_json: Anchor count json file
+        surface_count_json: Surfaceform count json file
+
+    Keyword Arguments:
+        outfile: Output file or directory (default: `vec*.parts`)
+        head: Use only N first lines from each partition
+        stem: Stemming language ISO 639-1 (2-letter) code
         vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
-            embeddings. If unset, use HashingVectorizer.
+            embeddings. If unset, use tokens directly.
         ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
-        lang: ICU tokenizer language
-        balanced: balanced training
+        balanced: Use balanced training
+        usenil: Use NIL option
     """
 
     if vectorizer:
-        name = anchor_json.stem + "." + vectorizer.stem
+        name = surface_count_json.stem + "." + vectorizer.stem
     else:
-        name = anchor_json.stem
+        name = surface_count_json.stem
 
     b = ".bal" if balanced else ""
     f = f".{ent_feats_csv.stem}" if ent_feats_csv else ""
-    fname = anchor_json.parent / f"{name}{b}{f}.parts"
-    logging.info(f"Writing to {fname}")
+    fname = f"vec.{name}{b}{f}.dat"
+    if not outfile:
+        outfile = paragraphlinks.parent / fname
+    if outfile.is_dir():
+        outfile = outfile / fname
+    outfile.parent.mkdir(parents=True, exist_ok=True)
 
     import dask.bag as db
     from .scale import progress, get_client
 
-    if lang:
-        logging.info(f"Snowball stemming for language: {lang}")
+    from dask.diagnostics import ProgressBar
+
+    if logging.root.level < 30:
+        pbar = ProgressBar()
+        pbar.register()
+
+    if stem:
+        logging.info(f"Snowball stemming for language: {stem}")
 
     with get_client():
         urlpath = str(paragraphlinks)
@@ -216,14 +239,25 @@ def vectorize(
             urlpath += "/*"
 
         bag = db.read_text(urlpath, files_per_partition=3)
+        logging.info(f"Writing to {outfile}.parts")
         data = bag.map_partitions(
             vw,
-            anchor_json,
+            surface_count_json,
+            head=head,
             ent_feats_csv=ent_feats_csv,
             balanced=balanced,
-            language=lang,
-        ).to_textfiles(str(fname))
-        # with open(fname, 'w') as fw:
-        #     for line in data:
-        #         print(line, file=fw)
-        return fname
+            language=stem,
+            usenil=usenil,
+        ).to_textfiles(f"{outfile}.parts")
+
+    logging.info(f"Concatenating to {outfile}")
+    with outfile.open("wb") as fout:
+        it = pathlib.Path(f"{outfile}.parts").glob("*")
+        if logging.root.level < 30:
+            it = tqdm.tqdm(list(it), desc="Concatenating")
+        for fin in it:
+            with fin.open("rb") as f:
+                fout.write(f.read())
+    shutil.rmtree(str(outfile) + ".parts")
+
+    return outfile

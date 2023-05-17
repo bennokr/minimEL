@@ -5,6 +5,12 @@ import time
 import logging
 import dask.distributed
 
+from dask.diagnostics import ProgressBar
+
+if logging.root.level < 30:
+    pbar = ProgressBar()
+    pbar.register()
+
 
 def progress(*args, **kwargs):
     start = time.time()

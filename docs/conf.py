@@ -53,6 +53,8 @@ napoleon_google_docstring = True
 napoleon_use_param = True
 napoleon_use_keyword = True
 napoleon_use_rtype = True
+always_document_param_types = True
+typehints_use_signature = True
 
 # Intersphinx config
 intersphinx_mapping = {
@@ -72,13 +74,14 @@ html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
 ### Copy notebooks
-nbdir = pathlib.Path('notebooks')
+nbdir = pathlib.Path("notebooks")
 nbdir.mkdir(exist_ok=True)
-for nb in pathlib.Path('..').glob('*.ipynb'):
+for nb in pathlib.Path("..").glob("*.ipynb"):
     shutil.copy(nb, nbdir)
 
 ### CLI docs
 print("Creating CLI docs...")
+
 
 def run(cmd):
     out = subprocess.run(cmd.split(), capture_output=True).stdout.decode()

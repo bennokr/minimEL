@@ -49,8 +49,9 @@ def count(
         paragraphlinks: Directory of (pagetitle, links-json, paragraph) .tsv files
 
     Keyword Arguments:
+        outfile: Output file or directory (default: `count.json`)
+        stem: Stemming language ISO 639-1 (2-letter) code
         min_count: Minimal (anchor-text, target) occurrence
-        stem: Language code for tokenization & stemming
         head: Use only N first lines from each partition
     """
 
@@ -93,6 +94,7 @@ def count(
             outfile = paragraphlinks.parent / fname
         if outfile.is_dir():
             outfile = outfile / fname
+        outfile.parent.mkdir(parents=True, exist_ok=True)
         logging.info(f"Writing to {outfile}")
         a_e_count.compute().to_json(outfile)
 
@@ -129,14 +131,13 @@ def count_surface(
     """
     Count anchor texts in Wikipedia paragraphs.
 
-    Writes `word{countfile}[.stem-{LANG}].json`
-
     Args:
         paragraphlinks: Directory of (pagetitle, links-json, paragraph) .tsv files
         countfile: Hyperlink anchor count JSON file
 
     Keyword Arguments:
-        stem: Language code for tokenization & stemming
+        outfile: Output file or directory (default: `word{countfile}[.stem-{LANG}].json`)
+        stem: Stemming language ISO 639-1 (2-letter) code
         head: Use only N first lines from each partition
     """
 
@@ -172,5 +173,6 @@ def count_surface(
             outfile = paragraphlinks.parent / fname
         if outfile.is_dir():
             outfile = outfile / fname
+        outfile.parent.mkdir(parents=True, exist_ok=True)
         logging.info(f"Writing to {outfile}")
         counts.compute().to_json(outfile)

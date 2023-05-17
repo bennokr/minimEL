@@ -98,7 +98,7 @@ def clean(
     tokenscore_threshold: float = 0.1,
     entropy_threshold: float = 1.0,
     countratio_threshold: float = 0.5,
-    shadowed_top: float = None,
+    quantile_top_shadowed: float = None,
 ):
     """
     Filter anchor counts (given their candidate entity counts).
@@ -108,15 +108,13 @@ def clean(
     If the tokenscore is low, then surfaceforms with high entropy or countratio
     (len / sum) are removed.
 
-    Writes `clean.json`
-
     Args:
         indexdbfile: Wikimapper index sqlite3 database
         disambigfile: Disambiguation JSON file
         countfile: Hyperlink anchor count {word: {Q_ent: count}} JSON file
 
     Keyword Arguments:
-        outfile: Output file
+        outfile: Output file or directory (default: `clean.json`)
         stem: Stemming language ISO 639-1 (2-letter) code
         min_count: Minimal candidate entity count
         freqnorm: Normalize counts by total entity frequency
@@ -125,7 +123,7 @@ def clean(
             between surface form and candidate entity labels
         entropy_threshold: Entropy threshold (high entropy = flat dist)
         countratio_threshold: Count-ratio (len / sum) threshold
-        shadowed_top: Only train models for a % surfaceforms with highest counts
+        quantile_top_shadowed: Only train models for a % surfaceforms with highest counts
             of candidate entities shadowed by the top candidate
     """
     surface_ent_counts = json.load(open(countfile))
@@ -200,7 +198,7 @@ def clean(
     }
     logging.info(f"Keeping {len(good_counts)} good surfaceforms")
 
-    if shadowed_top:
+    if quantile_top_shadowed:
         top_counts, shadow_counts = {}, []
         for s, ec in good_counts.items():
             if len(ec) > 1:
@@ -209,14 +207,18 @@ def clean(
                 for e, c in shadow:
                     shadow_counts.append((c, s, e))
         good_counts = {}
-        shadowed_topn = int(shadowed_top * len(shadow_counts))
-        for c, s, e in sorted(shadow_counts)[::-1][:shadowed_topn]:
+        quantile_top_shadowedn = int(quantile_top_shadowed * len(shadow_counts))
+        for c, s, e in sorted(shadow_counts)[::-1][:quantile_top_shadowedn]:
             te, tc = top_counts[s]
             good_counts.setdefault(s, {})[te] = tc
             good_counts[s][e] = c
-    
+
+    fname = "clean.json"
+    if not outfile:
+        outfile = countfile.parent / fname
     if outfile.is_dir():
-        outfile = outfile / 'clean.json'
+        outfile = outfile / fname
+    outfile.parent.mkdir(parents=True, exist_ok=True)
     logging.info(f"Writing to {outfile}")
-    with outfile.open('w') as fw:
+    with outfile.open("w") as fw:
         json.dump(good_counts, fw)

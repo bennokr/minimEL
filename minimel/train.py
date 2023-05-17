@@ -18,19 +18,29 @@ def train(
     """
     Train Logistic Regression models
 
-    Writes `{vec_file}.vw`
+    Writes
 
     Args:
         vec_file: Training data in Vowpal Wabbit format
+
+    Keyword Arguments:
+        outfile: Output file or directory (default: `model.b{bits}.vw`)
+        bits: Number of bits of the Vowpal Wabbit feature hash function
     """
 
     vec_file = pathlib.Path(vec_file)
     b = f".{bits}b"
-    fname = str(vec_file.parent / f"{vec_file.stem}{b}.vw")
+    fname = f"model{b}.vw"
+    if not outfile:
+        outfile = vec_file.parent / fname
+    if outfile.is_dir():
+        outfile = outfile / fname
+    outfile.parent.mkdir(parents=True, exist_ok=True)
+    logging.info(f"Writing to {outfile}")
 
     params = dict(
         data=str(vec_file),
-        final_regressor=fname,
+        final_regressor=str(outfile),
         bit_precision=bits,
         # invert_hash=fname+'.inverted', # https://stackoverflow.com/a/24660302
         # readable_model=fname+'.readable',
