@@ -3,6 +3,7 @@ from minimel import *
 eval = evaluate
 subcommands = [
     index,
+    xml_db,
     get_disambig,
     get_paragraphs,
     count,

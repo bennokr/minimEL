@@ -11,10 +11,6 @@ try:
     import dawg
 except ImportError:
     import dawg_python as dawg
-import pandas as pd
-from tqdm.auto import tqdm
-
-tqdm.pandas()
 
 from .normalize import normalize
 from minimel.vectorize import vw_tok

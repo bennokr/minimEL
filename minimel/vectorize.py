@@ -12,14 +12,13 @@ import re
 import html
 import pickle
 import json
+import math
 
 try:
     import dawg
 except ImportError:
     import dawg_python as dawg
 import tqdm
-import pandas as pd
-import numpy as np
 
 from .normalize import normalize
 
@@ -65,6 +64,8 @@ def vw(
     # Load entity features
     ent_feats = None
     if ent_feats_csv:
+        import pandas as pd
+
         ent_feats = pd.read_csv(ent_feats_csv, header=None, index_col=0, na_values="")[
             1
         ]
@@ -76,7 +77,7 @@ def vw(
             entlabels = [(int(e), 0)]  # positive
             for o, c in weights.items():  # negatives
                 if o != e:
-                    w = int(np.log1p(c)) if balanced else 1
+                    w = int(math.log(1 + c)) if balanced else 1
                     entlabels += [(int(o), w)]
             ns = "_".join(vw_tok(norm))
             for l, w in entlabels:
@@ -172,6 +173,7 @@ def transform(paragraphs, vectorizer):
 def embed(paragraphs, embeddingsfile, dim=None):
     warnings.simplefilter(action="ignore", category=Warning)
     import fasttext
+    import numpy as np
 
     m = fasttext.load_model(str(embeddingsfile))
     return np.vstack([m.get_sentence_vector(p)[:dim] for p in paragraphs])

@@ -11,12 +11,8 @@ setup(
     packages=["minimel"],
     zip_safe=False,
     entry_points={"console_scripts": ["minimel = minimel.__main__:main"]},
-    install_requires=[
-        "vowpalwabbit",
-        "DAWG-Python",
-    ],
+    install_requires=["vowpalwabbit", "DAWG-Python", "tqdm", "defopt", "pandas"],
     extras_require={
-        "cli": ["tqdm", "defopt", "pandas"],
         "train": ["mwparserfromhell", "dask[distributed]", "DAWG", "seaborn"],
         "stem": ["icu_tokenizer"],
         "ja": ["mecab-python3", "unidic-lite"],
