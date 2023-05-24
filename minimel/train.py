@@ -13,6 +13,7 @@ from vowpalwabbit import pyvw
 def train(
     vec_file: pathlib.Path,
     *,
+    outfile: pathlib.Path = None,
     bits: int = 20,
 ):
     """
