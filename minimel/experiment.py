@@ -34,7 +34,16 @@ def make_dir_params(name, **params):
 def get_dir_params(dirname: pathlib.Path):
     for param in dirname.name.split("__")[1:]:
         if "_" in param:
-            yield param.split("_", 1)
+            k, v = param.split("_", 1)
+            k = k.replace("-", "_")
+            try:
+                v = int(v)
+            except:
+                try:
+                    v = float(v)
+                except:
+                    pass
+            yield k, v
         elif param.startswith("no-"):
             yield param.replace("no-", ""), False
         else:
