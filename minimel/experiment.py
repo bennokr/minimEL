@@ -205,18 +205,19 @@ def experiment(
                     train_params = dict(get_dir_params(curdir))
 
                     # Run
-                    for run_params in sweep(
-                        runfile=runfile,
-                        fallback=fallback,
-                    ):
-                        newdir = curdir / make_dir_params("run", **vec_params)
-                        newdir.mkdir(parents=True, exist_ok=True)
-                        if not any(newdir.glob("run*.csv")):
-                            run(
-                                dawgfile,
-                                cleanfile,
-                                trainfile,
-                                run_params.pop("runfile") or None,
-                                outfile=newdir / "predictions.tsv",
-                                **run_params,
-                            )
+                    if any(runfile):
+                        for run_params in sweep(
+                            runfile=runfile,
+                            fallback=fallback,
+                        ):
+                            newdir = curdir / make_dir_params("run", **vec_params)
+                            newdir.mkdir(parents=True, exist_ok=True)
+                            if not any(newdir.glob("run*.csv")):
+                                run(
+                                    dawgfile,
+                                    cleanfile,
+                                    trainfile,
+                                    run_params.pop("runfile") or None,
+                                    outfile=newdir / "predictions.tsv",
+                                    **run_params,
+                                )
