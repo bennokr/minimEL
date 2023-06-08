@@ -178,7 +178,7 @@ def run(
     dawgfile: pathlib.Path,
     candidatefile: pathlib.Path = None,
     modelfile: pathlib.Path = None,
-    *runfile: pathlib.Path,
+    *runfiles: pathlib.Path,
     outfile: pathlib.Path = None,
     vectorizer: pathlib.Path = None,
     ent_feats_csv: pathlib.Path = None,
@@ -196,7 +196,7 @@ def run(
         dawgfile: DAWG trie file of Wikipedia > Wikidata count
         candidatefile: Candidate {surfaceform -> [ID]} json
         modelfile: Vowpal Wabbit model
-        runfile: Input file (- or absent for standard input). TSV rows of
+        runfiles: Input file (- or absent for standard input). TSV rows of
             (ID, {surface -> ID}, text) or ({surface -> ID}, text) or (text)
 
     Keyword Arguments:
@@ -210,9 +210,9 @@ def run(
         all_scores: Output all candidate scores
         upperbound: Create upper bound on performance
     """
-    if (not runfile) or (runfile == "-"):
-        runfile = (sys.stdin,)
-    logging.debug(f"Reading from {runfile}")
+    if (not any(runfiles)) or ("-" in runfiles):
+        runfiles = (sys.stdin,)
+    logging.debug(f"Reading from {runfiles}")
     if (not outfile) or (outfile == "-"):
         outfile = sys.stdout
     else:
@@ -230,7 +230,7 @@ def run(
     )
 
     ids, ents, texts = (), (), ()
-    data = pd.concat([pd.read_csv(i, sep="\t", header=None) for i in runfile])
+    data = pd.concat([pd.read_csv(i, sep="\t", header=None) for i in runfiles])
     if data.shape[1] == 1:
         texts = data[0]
     elif data.shape[1] == 2:

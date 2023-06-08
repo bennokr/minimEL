@@ -216,7 +216,7 @@ def experiment(
                                 dawgfile,
                                 cleanfile,
                                 trainfile,
-                                run_params.pop("runfile"),
+                                run_params.pop("runfile") or None,
                                 outfile=newdir / "predictions.tsv",
                                 **run_params,
                             )
