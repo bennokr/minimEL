@@ -5,6 +5,7 @@ import os
 import itertools
 
 from .get_disambig import get_disambig
+from .get_paragraphs import get_paragraphs
 from .count import count
 from .clean import clean
 from .vectorize import vectorize
