@@ -66,10 +66,8 @@ def vw(
     if ent_feats_csv:
         import pandas as pd
 
-        ent_feats = pd.read_csv(ent_feats_csv, header=None, index_col=0, na_values="")[
-            1
-        ]
-        ent_feats = ent_feats.fillna("")
+        ent_feats = pd.read_csv(ent_feats_csv, header=None, index_col=0, na_values="")
+        ent_feats = ent_feats[1].fillna("")
         logging.debug(f"Loaded {len(ent_feats)} entity features")
 
     def vw_label_lines(weights, e, norm, ent_feats=None):

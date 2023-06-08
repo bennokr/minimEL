@@ -66,7 +66,7 @@ class MiniNED:
         vectorizer: pathlib.Path = None,
         ent_feats_csv: pathlib.Path = None,
         lang: str = None,
-        countfile: pathlib.Path = None,
+        fallback: pathlib.Path = None,
     ):
         """
         Named Entity Disambiguation class
@@ -80,7 +80,7 @@ class MiniNED:
             vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
                 embeddings. If unset, use HashingVectorizer.
             ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
-            countfile: Additional preferred deterministic surfaceform -> ID json
+            fallback: Additional fallback deterministic surfaceform -> ID json
         """
 
         self.lang = lang
@@ -89,7 +89,7 @@ class MiniNED:
         self.index.load(str(dawgfile))
 
         self.candidates = json.load(candidatefile.open()) if candidatefile else {}
-        self.count = json.load(countfile.open()) if countfile else {}
+        self.count = json.load(fallback.open()) if fallback else {}
 
         self.ent_feats = None
         if ent_feats_csv:
@@ -130,7 +130,7 @@ class MiniNED:
 
     def predict(self, text: str, surface: str, upperbound=None, all_scores=False):
         """
-        Make NED prediction
+        Make NED prediction.
 
         Args:
             text: Some text
@@ -139,6 +139,9 @@ class MiniNED:
         Keyword Arguments:
             all_scores: Output all candidate scores
             upperbound: Create upper bound on performance
+        
+        Returns:
+            Wikidata ID
         """
         pred = None
         if upperbound:
@@ -180,7 +183,7 @@ def run(
     vectorizer: pathlib.Path = None,
     ent_feats_csv: pathlib.Path = None,
     lang: str = None,
-    countfile: pathlib.Path = None,
+    fallback: pathlib.Path = None,
     evaluate: bool = False,
     predict_only: bool = True,
     all_scores: bool = False,
@@ -201,7 +204,7 @@ def run(
         vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
             embeddings. If unset, use HashingVectorizer.
         ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
-        countfile: Additional preferred deterministic surfaceform -> ID json
+        fallback: Additional fallback deterministic surfaceform -> ID json
         evaluate: Report evaluation scores instead of predictions
         predict_only: Only print predictions, not original text
         all_scores: Output all candidate scores
@@ -211,7 +214,7 @@ def run(
         runfile = (sys.stdin,)
     logging.debug(f"Reading from {runfile}")
     if (not outfile) or (outfile == "-"):
-        outfile = (sys.stdout,)
+        outfile = sys.stdout
     else:
         outfile = outfile.open("w")
     logging.debug(f"Writing to {outfile}")
@@ -223,7 +226,7 @@ def run(
         vectorizer=vectorizer,
         ent_feats_csv=ent_feats_csv,
         lang=lang,
-        countfile=countfile,
+        fallback=fallback,
     )
 
     ids, ents, texts = (), (), ()
@@ -301,7 +304,7 @@ def evaluate(
         import numpy as np
 
         preddf = preddf.replace([np.nan], [None])
-        scores[predfile.stem] = get_scores(preddf.gold, preddf.pred)
+        scores[predfile] = get_scores(preddf.gold, preddf.pred)
 
     if "defopt" in sys.modules:
         pd.set_option("display.max_colwidth", None)

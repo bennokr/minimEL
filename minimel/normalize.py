@@ -49,14 +49,19 @@ SNOWBALL_LANG = {
 
 
 STEMMERS = {}
+SPACY_MODEL = None
 
 
 def stem(text, code, spacy=False):
     if spacy:
+        global SPACY_MODEL
+
         import spacy as sp
 
-        nlp = sp.load(code)
-        doc = nlp(text)
+        if SPACY_MODEL is None:
+            SPACY_MODEL = sp.load(code)
+
+        doc = SPACY_MODEL(text)
         # Lemmatization instead of stemming
         return " ".join(token.lemma_ for token in doc)
 
