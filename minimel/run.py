@@ -57,6 +57,120 @@ def get_scores(golds, preds):
     return res
 
 
+class MiniNED:
+    def __init__(
+        self,
+        dawgfile: pathlib.Path,
+        candidatefile: pathlib.Path = None,
+        modelfile: pathlib.Path = None,
+        vectorizer: pathlib.Path = None,
+        ent_feats_csv: pathlib.Path = None,
+        lang: str = None,
+        countfile: pathlib.Path = None,
+    ):
+        """
+        Named Entity Disambiguation class
+
+        Args:
+            dawgfile: DAWG trie file of Wikipedia > Wikidata count
+            candidatefile: Candidate {surfaceform -> [ID]} json
+            modelfile: Vowpal Wabbit model
+
+        Keyword Arguments:
+            vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
+                embeddings. If unset, use HashingVectorizer.
+            ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
+            countfile: Additional preferred deterministic surfaceform -> ID json
+        """
+
+        self.lang = lang
+
+        self.index = dawg.IntDAWG()
+        self.index.load(str(dawgfile))
+
+        self.candidates = json.load(candidatefile.open()) if candidatefile else {}
+        self.count = json.load(countfile.open()) if countfile else {}
+
+        self.ent_feats = None
+        if ent_feats_csv:
+            self.ent_feats = pd.read_csv(
+                ent_feats_csv, header=None, index_col=0, na_values=""
+            )
+            self.ent_feats = ent_feats[1].fillna("")
+            logging.info(f"Loaded {len(self.ent_feats)} entity features")
+
+        self.model = None
+        if candidatefile and modelfile:
+            self.model = pyvw.Workspace(
+                initial_regressor=str(modelfile),
+                loss_function="logistic",
+                csoaa_ldf="mc",
+                probabilities=True,
+                testonly=True,
+                quiet=True,
+            )
+
+    def _model_predict(self, text, norm, ents, all_scores=False):
+        # TODO: replace with vectorize.vw!!!
+        preds = {}
+        ents = list(ents)
+        toks = "shared |s " + " ".join(vw_tok(text))
+        ns = "_".join(vw_tok(norm))
+        for i, ent in enumerate(ents):
+            efeats = (
+                str(self.ent_feats.get(l, "")) if (self.ent_feats is not None) else ""
+            )
+            efeats = "|f " + efeats if efeats else ""
+            cands = [f"{e} |l {ns}={e} {efeats}" for e in ents[i:] + ents[:i]]
+            preds[ent] = self.model.predict([toks] + cands)
+        if all_scores:
+            return preds
+        else:
+            return max(preds.items(), key=lambda x: x[1])[0]
+
+    def predict(self, text: str, surface: str, upperbound=None, all_scores=False):
+        """
+        Make NED prediction
+
+        Args:
+            text: Some text
+            surface: An entity name in `text`
+
+        Keyword Arguments:
+            all_scores: Output all candidate scores
+            upperbound: Create upper bound on performance
+        """
+        pred = None
+        if upperbound:
+            gold = str(upperbound)
+            for norm in normalize(surface, language=self.lang):
+                if (norm in self.count) and (gold in self.count[norm]):
+                    pred = gold
+            if not pred:
+                if str(self.index.get(surface.replace(" ", "_"), -1)) == gold:
+                    pred = gold
+        else:
+            for norm in normalize(surface, language=self.lang):
+                ent_cand = self.candidates.get(norm, None)
+                if ent_cand and self.model:  # Vowpal Wabbit model
+                    pred = self._model_predict(
+                        text, norm, ent_cand, all_scores=all_scores
+                    )
+                elif norm in self.count:  # fallback: most common meaning
+                    dist = self.count[norm]
+                    pred = max(dist, key=lambda x: dist[x])
+                elif surface.replace(" ", "_") in self.index:  # deterministic index
+                    pred = self.index[surface.replace(" ", "_")]
+        if pred:
+            if all_scores:
+                if type(pred) != dict:
+                    pred = {pred: 1}
+                pred = {f"Q{p}": s for p, s in pred.items()}
+            else:
+                pred = int(str(pred).replace("Q", ""))
+        return pred
+
+
 def run(
     dawgfile: pathlib.Path,
     candidatefile: pathlib.Path = None,
@@ -69,11 +183,11 @@ def run(
     countfile: pathlib.Path = None,
     evaluate: bool = False,
     predict_only: bool = True,
-    score_only: bool = False,
+    all_scores: bool = False,
     upperbound: bool = False,
 ):
     """
-    Perform entity linking
+    Perform entity disambiguation
 
     Args:
         dawgfile: DAWG trie file of Wikipedia > Wikidata count
@@ -90,6 +204,7 @@ def run(
         countfile: Additional preferred deterministic surfaceform -> ID json
         evaluate: Report evaluation scores instead of predictions
         predict_only: Only print predictions, not original text
+        all_scores: Output all candidate scores
         upperbound: Create upper bound on performance
     """
     if (not runfile) or (runfile == "-"):
@@ -98,33 +213,18 @@ def run(
     if (not outfile) or (outfile == "-"):
         outfile = (sys.stdout,)
     else:
-        outfile = outfile.open('w')
+        outfile = outfile.open("w")
     logging.debug(f"Writing to {outfile}")
 
-    index = dawg.IntDAWG()
-    index.load(str(dawgfile))
-
-    candidates = json.load(candidatefile.open()) if candidatefile else {}
-    count = json.load(countfile.open()) if countfile else {}
-
-    ent_feats = None
-    if ent_feats_csv:
-        ent_feats = pd.read_csv(ent_feats_csv, header=None, index_col=0, na_values="")[
-            1
-        ]
-        ent_feats = ent_feats.fillna("")
-        logging.info(f"Loaded {len(ent_feats)} entity features")
-
-    model = None
-    if candidatefile and modelfile:
-        model = pyvw.Workspace(
-            initial_regressor=str(modelfile),
-            loss_function="logistic",
-            csoaa_ldf="mc",
-            probabilities=True,
-            testonly=True,
-            quiet=True,
-        )
+    ned = MiniNED(
+        dawgfile,
+        candidatefile=candidatefile,
+        modelfile=modelfile,
+        vectorizer=vectorizer,
+        ent_feats_csv=ent_feats_csv,
+        lang=lang,
+        countfile=countfile,
+    )
 
     ids, ents, texts = (), (), ()
     data = pd.concat([pd.read_csv(i, sep="\t", header=None) for i in runfile])
@@ -136,59 +236,20 @@ def run(
         data[1] = data[1].map(json.loads)
         ids, ents, texts = data[0], data[1], data[2]
 
-    def model_predict(model, text, norm, ents, ent_feats=None, score=False):
-        # TODO: replace with vectorize.vw!!!
-        preds = {}
-        ents = list(ents)
-        toks = "shared |s " + " ".join(vw_tok(text))
-        ns = "_".join(vw_tok(norm))
-        for i, ent in enumerate(ents):
-            efeats = str(ent_feats.get(l, "")) if (ent_feats is not None) else ""
-            efeats = "|f " + efeats if efeats else ""
-            cands = [f"{e} |l {ns}={e} {efeats}" for e in ents[i:] + ents[:i]]
-            preds[ent] = model.predict([toks] + cands)
-        if score:
-            return preds
-        else:
-            return max(preds.items(), key=lambda x: x[1])[0]
-
     preds = []
     it = tqdm.tqdm(texts, "Predicting") if logging.root.level < 30 else texts
     for i, text in enumerate(it):
         ent_pred = {}
         if len(ents):
             for surface in ents[i]:
-                pred = None
-                if upperbound:
-                    gold = str(ents[i][surface])
-                    for norm in normalize(surface, language=lang):
-                        if (norm in count) and (gold in count[norm]):
-                            pred = gold
-                    if not pred:
-                        if str(index.get(surface.replace(" ", "_"), -1)) == gold:
-                            pred = gold
-                else:
-                    for norm in normalize(surface, language=lang):
-                        ent_cand = candidates.get(norm, None)
-                        if ent_cand and model: # Vowpal Wabbit model
-                            pred = model_predict(
-                                model, text, norm, ent_cand, score=score_only
-                            )
-                        elif norm in count: # fallback: most common meaning
-                            dist = count[norm]
-                            pred = max(dist, key=lambda x: dist[x])
-                        elif surface.replace(" ", "_") in index: # deterministic index
-                            pred = index[surface.replace(" ", "_")]
+                gold = ents[i][surface] if upperbound else None
+                pred = ned.predict(
+                    text, surface, upperbound=gold, all_scores=all_scores
+                )
                 if pred:
-                    if score_only:
-                        if type(pred) != dict:
-                            pred = {pred: 1}
-                        pred = {f"Q{p}": s for p, s in pred.items()}
-                    else:
-                        pred = int(str(pred).replace("Q", ""))
                     ent_pred[surface] = pred
         if not evaluate:
-            if predict_only or score_only:
+            if predict_only or all_scores:
                 if len(ids):
                     print(ids[i], json.dumps(ent_pred), sep="\t", file=outfile)
                 else:

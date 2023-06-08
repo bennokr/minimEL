@@ -39,9 +39,7 @@ def get_list_links(page, disambig_template=None):
                         yield str(link.title)
 
 
-def get_disambig_links(
-    lines, dawgfile, disambig_ent_file=None, disambig_template=None
-):
+def get_disambig_links(lines, dawgfile, disambig_ent_file=None, disambig_template=None):
     index = dawg.IntDAWG()
     index.load(dawgfile)
 
@@ -55,7 +53,7 @@ def get_disambig_links(
         elem = cElementTree.fromstring(line)
         title = elem.find("./title").text.replace(" ", "_")
         text = elem.find("./revision/text").text
-        
+
         if disambig_template:
             ent = int(elem.find("./id").text)
         else:
@@ -121,11 +119,11 @@ def get_disambig(
             progress(links.persist(), out=sys.stderr)
         else:
             links.persist()
-        
+
         ents, titles, links = zip(*links.compute())
         if disambig_template and disambig_ent_file:
             logging.info(f"Writing to {disambig_ent_file}")
-            with open(disambig_ent_file, 'w') as fw:
+            with open(disambig_ent_file, "w") as fw:
                 for e in ents:
                     print(e, file=fw)
         links = dict(zip(titles, links))

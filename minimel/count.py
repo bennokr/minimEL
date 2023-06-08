@@ -108,7 +108,7 @@ def get_matches(surface_trie, text, stem=None):
 
 def count_surface_lines(lines, countfile, stem=None, head=None):
     import dawg
-    
+
     surfaces = json.load(open(countfile))
     surface_trie = dawg.CompletionDAWG(surfaces)
     counts = collections.Counter()
@@ -166,7 +166,8 @@ def count_surface(
             progress(counts.persist(), out=sys.stderr)
 
         s = f"-stem" if stem else ""
-        fname = f"word{countfile.stem}{s}.json"
+        h = f"-head{head}" if head else ""
+        fname = f"word{countfile.stem}{s}{h}.json"
         if not outfile:
             outfile = paragraphlinks.parent / fname
         if outfile.is_dir():

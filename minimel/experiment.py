@@ -196,7 +196,7 @@ def experiment(
                     newdir.mkdir(parents=True, exist_ok=True)
                     if not any(newdir.glob("model*.vw")):
                         train(vecfile, outfile=newdir, **train_params)
-                    
+
                 for trainfile in curdir.rglob("train*/model*.vw"):
                     curdir = trainfile.parent
                     train_params = dict(get_dir_params(curdir))
@@ -212,7 +212,7 @@ def experiment(
                                 dawgfile,
                                 cleanfile,
                                 trainfile,
-                                run_params.pop('runfile'),
-                                outfile=newdir / 'predictions.tsv',
-                                **run_params
+                                run_params.pop("runfile"),
+                                outfile=newdir / "predictions.tsv",
+                                **run_params,
                             )

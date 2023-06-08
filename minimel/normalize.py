@@ -3,7 +3,7 @@ import html
 import logging
 
 
-def normalize(a, language=None):
+def normalize(a, language=None, spacy=False):
     """Yields 1 normalized form of entity mention `a` if possible"""
     BADCHARS = "'\"〞「❜❞＂”‚〝»‟―‹›❛❮’‘〟❯„‛“❝«()"
     if a:
@@ -13,7 +13,7 @@ def normalize(a, language=None):
         # no numbers or dates
         if not (a.startswith("<") or re.match("^[0-9-/—]+$", a)):
             if a and language:
-                a = stem(a, language)
+                a = stem(a, language, spacy=spacy)
             if a:
                 yield a
 
@@ -51,38 +51,47 @@ SNOWBALL_LANG = {
 STEMMERS = {}
 
 
-def stem(text, code):
-    global STEMMERS
+def stem(text, code, spacy=False):
+    if spacy:
+        import spacy as sp
 
-    from icu_tokenizer import Tokenizer
+        nlp = sp.load(code)
+        doc = nlp(text)
+        # Lemmatization instead of stemming
+        return " ".join(token.lemma_ for token in doc)
 
-    tokenizer = Tokenizer(lang=code).tokenize
-    lang = SNOWBALL_LANG.get(code)
-    if lang:
-        if code not in STEMMERS:
-            import snowballstemmer
-
-            STEMMERS[code] = snowballstemmer.stemmer(lang)
-        return " ".join(STEMMERS[code].stemWords(tokenizer(text)))
-    elif code == "fa":
-        if code not in STEMMERS:
-            from PersianStemmer import PersianStemmer
-
-            STEMMERS[code] = PersianStemmer()
-        return STEMMERS[code].run(text)
-    elif code == "ja":
-        if code not in STEMMERS:
-            import MeCab
-
-            STEMMERS[code] = MeCab.Tagger()
-        if not text.strip():
-            return ""
-        analysis = STEMMERS[code].parse(text).split("\n")[:-2]
-        columns = tuple(zip(*[l.split("\t") for l in analysis]))
-        try:
-            return " ".join(columns[2]).strip()
-        except IndexError:
-            logging.warn("Bad Japanese: " + text)
-            return ""
     else:
-        return " ".join(tokenizer(text))
+        global STEMMERS
+
+        from icu_tokenizer import Tokenizer
+
+        tokenizer = Tokenizer(lang=code).tokenize
+        lang = SNOWBALL_LANG.get(code)
+        if lang:
+            if code not in STEMMERS:
+                import snowballstemmer
+
+                STEMMERS[code] = snowballstemmer.stemmer(lang)
+            return " ".join(STEMMERS[code].stemWords(tokenizer(text)))
+        elif code == "fa":
+            if code not in STEMMERS:
+                from PersianStemmer import PersianStemmer
+
+                STEMMERS[code] = PersianStemmer()
+            return STEMMERS[code].run(text)
+        elif code == "ja":
+            if code not in STEMMERS:
+                import MeCab
+
+                STEMMERS[code] = MeCab.Tagger()
+            if not text.strip():
+                return ""
+            analysis = STEMMERS[code].parse(text).split("\n")[:-2]
+            columns = tuple(zip(*[l.split("\t") for l in analysis]))
+            try:
+                return " ".join(columns[2]).strip()
+            except IndexError:
+                logging.warn("Bad Japanese: " + text)
+                return ""
+        else:
+            return " ".join(tokenizer(text))
