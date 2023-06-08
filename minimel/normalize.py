@@ -7,7 +7,7 @@ def normalize(a, language=None):
     """Yields 1 normalized form of entity mention `a` if possible"""
     BADCHARS = "'\"〞「❜❞＂”‚〝»‟―‹›❛❮’‘〟❯„‛“❝«()"
     if a:
-        a = a.replace("_", " ")
+        a = a.split("_(")[0].replace("_", " ")
         a = re.sub(f"[{BADCHARS}]", "", a.replace("&nbsp;", " "))
         a = html.unescape(a).lower().strip()
         # no numbers or dates

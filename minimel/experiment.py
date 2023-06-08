@@ -9,6 +9,7 @@ from .count import count
 from .clean import clean
 from .vectorize import vectorize
 from .train import train
+from .run import run
 
 
 def find(directory, glob):
@@ -72,13 +73,15 @@ def experiment(
     usenil: typing.List[bool] = (False,),
     # Train
     bits: typing.List[int] = (20,),
+    # Eval
+    runfile: typing.List[pathlib.Path] = ("",),
 ):
     """
     Run all steps to train and evaluate EL models over a parameter sweep.
 
     The root directory must contain the following files:
 
-    - `wikidata*-disambig.txt`: See :obj:`~get_disambig.get_disambig`
+    - `*-disambig.txt`: See `disambig_ent_file` in :obj:`~get_disambig.get_disambig`
 
     Args:
         root: Root directory
@@ -89,7 +92,7 @@ def experiment(
         stem: Stemming language ISO 639-1 (2-letter) code (use X for no stemming)
         min_count: Minimal (anchor-text, target) occurrence
         freqnorm: Normalize counts by total entity frequency (1/0)
-        badentfile: File of entity IDs to ignore, one per line (default: `wikidata*-disambig.txt`)
+        badentfile: File of entity IDs to ignore, one per line (default: `*-disambig.txt`)
         tokenscore_threshold: Threshold for mean asymmentric Jaccard index
             between surface form and candidate entity labels
         entropy_threshold: Entropy threshold (high entropy = flat dist)
@@ -102,6 +105,7 @@ def experiment(
         balanced: Use balanced training
         usenil: Use NIL option for training unlinked mentions
         bits: Number of bits of the Vowpal Wabbit feature hash function
+        runfile: TSV rows of (ID, {surface -> ID}, text) or ({surface -> ID}, text)
     """
     root = root.absolute()
     logging.info(f"Running experiments for {root}")
@@ -111,10 +115,10 @@ def experiment(
     wikidump = find(root, "*-pages-articles.xml")
 
     # Get disambiguations
-    wikidata_disambigfile = find(root, "wikidata*-disambig.txt")
+    disambig_ent_file = find(root, "*-disambig.txt")
     if not any(root.glob("disambig.json")):
         logging.info(f"Getting disambiguations...")
-        get_disambig(wikidump, dawgfile, wikidata_disambigfile, nparts=nparts)
+        get_disambig(wikidump, dawgfile, disambig_ent_file, nparts=nparts)
     disambigfile = find(root, "disambig.json")
 
     # Get paragraph links
@@ -132,7 +136,7 @@ def experiment(
             logging.info(f"Counting in {newdir}...")
             count(paragraphlinks, outfile=newdir, **params)
 
-    for countfile in curdir.rglob("count*.json"):
+    for countfile in curdir.rglob("count*/count*.json"):
         curdir = countfile.parent
         count_params = dict(get_dir_params(curdir))
 
@@ -152,12 +156,12 @@ def experiment(
             if not any(newdir.glob("clean*.json")):
                 logging.info(f"Cleaning in {newdir}...")
                 if not clean_params["badentfile"]:
-                    clean_params["badentfile"] = wikidata_disambigfile
+                    clean_params["badentfile"] = disambig_ent_file
                 clean(
                     indexdbfile, disambigfile, countfile, outfile=newdir, **clean_params
                 )
 
-        for cleanfile in curdir.rglob("clean*.json"):
+        for cleanfile in curdir.rglob("clean*/clean*.json"):
             curdir = cleanfile.parent
             clean_params = dict(get_dir_params(curdir))
 
@@ -180,7 +184,7 @@ def experiment(
                         **vec_params,
                     )
 
-            for vecfile in curdir.rglob("vec*.dat"):
+            for vecfile in curdir.rglob("vec*/vec*.dat"):
                 curdir = vecfile.parent
                 vec_params = dict(get_dir_params(curdir))
 
@@ -188,7 +192,27 @@ def experiment(
                 for train_params in sweep(
                     bits=bits,
                 ):
-                    newdir = curdir / make_dir_params("model", **vec_params)
+                    newdir = curdir / make_dir_params("train", **vec_params)
                     newdir.mkdir(parents=True, exist_ok=True)
                     if not any(newdir.glob("model*.vw")):
-                        train(vecfile, **train_params)
+                        train(vecfile, outfile=newdir, **train_params)
+                    
+                for trainfile in curdir.rglob("train*/model*.vw"):
+                    curdir = trainfile.parent
+                    train_params = dict(get_dir_params(curdir))
+
+                    # Run
+                    for run_params in sweep(
+                        runfile=runfile,
+                    ):
+                        newdir = curdir / make_dir_params("run", **vec_params)
+                        newdir.mkdir(parents=True, exist_ok=True)
+                        if not any(newdir.glob("run*.csv")):
+                            run(
+                                dawgfile,
+                                cleanfile,
+                                trainfile,
+                                run_params.pop('runfile'),
+                                outfile=newdir / 'predictions.tsv',
+                                **run_params
+                            )

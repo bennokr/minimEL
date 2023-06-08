@@ -40,14 +40,14 @@ def get_list_links(page, disambig_template=None):
 
 
 def get_disambig_links(
-    lines, dawgfile, wikidata_disambigfile=None, disambig_template=None
+    lines, dawgfile, disambig_ent_file=None, disambig_template=None
 ):
     index = dawg.IntDAWG()
     index.load(dawgfile)
 
-    if wikidata_disambigfile:
+    if not disambig_template:
         disambig_ents = set(
-            int(q.replace("Q", "")) for q in open(wikidata_disambigfile).readlines()
+            int(q.replace("Q", "")) for q in open(disambig_ent_file).readlines()
         )
     output = []
     for line in lines:
@@ -55,22 +55,27 @@ def get_disambig_links(
         elem = cElementTree.fromstring(line)
         title = elem.find("./title").text.replace(" ", "_")
         text = elem.find("./revision/text").text
+        
+        if disambig_template:
+            ent = int(elem.find("./id").text)
+        else:
+            ent = index.get(title)
 
-        if (not wikidata_disambigfile) or (index.get(title) in disambig_ents):
+        if disambig_template or (ent in disambig_ents):
             links = set()
             for link in get_list_links(text, disambig_template=disambig_template):
                 link = link.replace(" ", "_")
                 if link in index:
                     links.add(index[link])
             if links:
-                output.append((title, list(links)))
+                output.append((ent, title, list(links)))
     return output
 
 
 def get_disambig(
     wikidump: pathlib.Path,
     dawgfile: pathlib.Path,
-    wikidata_disambigfile: pathlib.Path = None,
+    disambig_ent_file: pathlib.Path = None,
     *,
     disambig_template: str = None,
     nparts: int = 1000,
@@ -83,11 +88,11 @@ def get_disambig(
     Args:
         wikidump: Wikipedia XML dump file
         dawgfile: DAWG trie file of Wikipedia > Wikidata mapping
-        wikidata_disambigfile: Flat text file of disambiguation pages with one Wikidata Q.. per line
+        disambig_ent_file: Flat text file of disambiguation pages with one entity ID per line
 
     Keyword Arguments:
         nparts: Number of chunks to read
-        disambig-template: If no wikidata_disambigfile is provided, consider disambiguation pages that contain a template with this name
+        disambig-template: Use disambiguation pages that contain a template with this name instead of `disambig_ent_file` (if disambig_ent_file is provided, create it)
     """
 
     import dask.bag as db
@@ -95,7 +100,7 @@ def get_disambig(
 
     if disambig_template:
         logging.info(
-            f"Using disambiguation template {disambig_template}, not {wikidata_disambigfile}"
+            f"Using disambiguation template {disambig_template}, not {disambig_ent_file}"
         )
 
     with get_client():
@@ -107,7 +112,7 @@ def get_disambig(
             lambda b: get_disambig_links(
                 b,
                 str(dawgfile),
-                str(wikidata_disambigfile or ""),
+                str(disambig_ent_file or ""),
                 disambig_template=disambig_template,
             )
         )
@@ -116,8 +121,14 @@ def get_disambig(
             progress(links.persist(), out=sys.stderr)
         else:
             links.persist()
-
-        links = dict(links.compute())
+        
+        ents, titles, links = zip(*links.compute())
+        if disambig_template and disambig_ent_file:
+            logging.info(f"Writing to {disambig_ent_file}")
+            with open(disambig_ent_file, 'w') as fw:
+                for e in ents:
+                    print(e, file=fw)
+        links = dict(zip(titles, links))
         outfile = wikidump.parent / "disambig.json"
         logging.info(f"Writing to {outfile}")
         with open(outfile, "w") as fw:

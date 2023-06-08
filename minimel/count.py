@@ -107,6 +107,8 @@ def get_matches(surface_trie, text, stem=None):
 
 
 def count_surface_lines(lines, countfile, stem=None, head=None):
+    import dawg
+    
     surfaces = json.load(open(countfile))
     surface_trie = dawg.CompletionDAWG(surfaces)
     counts = collections.Counter()

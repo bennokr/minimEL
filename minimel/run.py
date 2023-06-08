@@ -61,13 +61,14 @@ def run(
     dawgfile: pathlib.Path,
     candidatefile: pathlib.Path = None,
     modelfile: pathlib.Path = None,
-    *infile: pathlib.Path,
+    *runfile: pathlib.Path,
+    outfile: pathlib.Path = None,
     vectorizer: pathlib.Path = None,
     ent_feats_csv: pathlib.Path = None,
     lang: str = None,
     countfile: pathlib.Path = None,
     evaluate: bool = False,
-    predict_only: bool = False,
+    predict_only: bool = True,
     score_only: bool = False,
     upperbound: bool = False,
 ):
@@ -78,10 +79,11 @@ def run(
         dawgfile: DAWG trie file of Wikipedia > Wikidata count
         candidatefile: Candidate {surfaceform -> [ID]} json
         modelfile: Vowpal Wabbit model
-        infile: Input file (- or absent for standard input). TSV rows of
+        runfile: Input file (- or absent for standard input). TSV rows of
             (ID, {surface -> ID}, text) or ({surface -> ID}, text) or (text)
 
     Keyword Arguments:
+        outfile: Write outputs to file (default: stdout)
         vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
             embeddings. If unset, use HashingVectorizer.
         ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
@@ -90,9 +92,14 @@ def run(
         predict_only: Only print predictions, not original text
         upperbound: Create upper bound on performance
     """
-    if (not infile) or (infile == "-"):
-        infile = (sys.stdin,)
-    logging.debug(f"Reading from {infile}")
+    if (not runfile) or (runfile == "-"):
+        runfile = (sys.stdin,)
+    logging.debug(f"Reading from {runfile}")
+    if (not outfile) or (outfile == "-"):
+        outfile = (sys.stdout,)
+    else:
+        outfile = outfile.open('w')
+    logging.debug(f"Writing to {outfile}")
 
     index = dawg.IntDAWG()
     index.load(str(dawgfile))
@@ -120,7 +127,7 @@ def run(
         )
 
     ids, ents, texts = (), (), ()
-    data = pd.concat([pd.read_csv(i, sep="\t", header=None) for i in infile])
+    data = pd.concat([pd.read_csv(i, sep="\t", header=None) for i in runfile])
     if data.shape[1] == 1:
         texts = data[0]
     elif data.shape[1] == 2:
@@ -163,14 +170,14 @@ def run(
                 else:
                     for norm in normalize(surface, language=lang):
                         ent_cand = candidates.get(norm, None)
-                        if ent_cand and model:
+                        if ent_cand and model: # Vowpal Wabbit model
                             pred = model_predict(
                                 model, text, norm, ent_cand, score=score_only
                             )
-                        elif norm in count:
+                        elif norm in count: # fallback: most common meaning
                             dist = count[norm]
                             pred = max(dist, key=lambda x: dist[x])
-                        elif surface.replace(" ", "_") in index:
+                        elif surface.replace(" ", "_") in index: # deterministic index
                             pred = index[surface.replace(" ", "_")]
                 if pred:
                     if score_only:
@@ -183,19 +190,20 @@ def run(
         if not evaluate:
             if predict_only or score_only:
                 if len(ids):
-                    print(ids[i], json.dumps(ent_pred), sep="\t")
+                    print(ids[i], json.dumps(ent_pred), sep="\t", file=outfile)
                 else:
-                    print(json.dumps(ent_pred), sep="\t")
+                    print(json.dumps(ent_pred), sep="\t", file=outfile)
             else:
                 if len(ids):
-                    print(ids[i], json.dumps(ent_pred), text, sep="\t")
+                    print(ids[i], json.dumps(ent_pred), text, sep="\t", file=outfile)
                 else:
-                    print(json.dumps(ent_pred), text, sep="\t")
+                    print(json.dumps(ent_pred), text, sep="\t", file=outfile)
+            outfile.flush()
 
         preds.append(ent_pred)
 
     if len(ents) and evaluate:
-        print(get_scores(ents, preds).T.to_csv())
+        print(get_scores(ents, preds).T.to_csv(), file=outfile)
 
 
 def evaluate(
