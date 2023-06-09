@@ -3,6 +3,8 @@ import pathlib
 import logging
 import os
 import itertools
+import time
+import datetime
 
 from .get_disambig import get_disambig
 from .get_paragraphs import get_paragraphs
@@ -11,6 +13,22 @@ from .clean import clean
 from .vectorize import vectorize
 from .train import train
 from .run import run
+
+
+class log_time(object):
+    def __init__(self, fname):
+        self.fname = fname
+
+    def __enter__(self):
+        self.fw = open(self.fname, "w")
+        self.start = time.time()
+        print(f"Started at {datetime.datetime.now().isoformat()}", file=self.fw)
+        return self.fw
+
+    def __exit__(self, type, value, traceback):
+        print(f"Ended at {datetime.datetime.now().isoformat()}", file=self.fw)
+        print(f"Elapsed: {time.time() - self.start}", file=self.fw)
+        self.fw.close()
 
 
 def find(directory, glob):
@@ -78,7 +96,8 @@ def experiment(
     # Run
     runfile: typing.List[pathlib.Path] = ("",),
     use_fallback: typing.List[bool] = (True,),
-    evaluate: typing.List[bool] = (False,),
+    also_baseline: bool = True,
+    evaluate: bool = False,
 ):
     """
     Run all steps to train and evaluate EL models over a parameter sweep.
@@ -113,6 +132,8 @@ def experiment(
         bits: Number of bits of the Vowpal Wabbit feature hash function
         runfile: TSV rows of (ID, {surface -> ID}, text) or ({surface -> ID}, text)
         use_fallback: Use raw counts as fallback
+        also_baseline: Also run a baseline model without model predictions
+        evaluate: Write evaluation scores to logging output
     """
     root = root.absolute()
     outdir = outdir or root
@@ -204,7 +225,8 @@ def experiment(
                     newdir = curdir / make_dir_params("train", **vec_params)
                     newdir.mkdir(parents=True, exist_ok=True)
                     if not any(newdir.glob("model*.vw")):
-                        train(vecfile, outfile=newdir, **train_params)
+                        with log_time(newdir / "time.log"):
+                            train(vecfile, outfile=newdir, **train_params)
 
                 for trainfile in curdir.rglob("train*/model*.vw"):
                     curdir = trainfile.parent
@@ -215,7 +237,6 @@ def experiment(
                         for run_params in sweep(
                             runfile=runfile,
                             use_fallback=use_fallback,
-                            evaluate=evaluate,
                         ):
                             newdir = curdir / make_dir_params("run", **vec_params)
                             newdir.mkdir(parents=True, exist_ok=True)
@@ -223,13 +244,29 @@ def experiment(
                             fallback = (
                                 countfile if run_params.pop("use_fallback") else None
                             )
-                            if not any(newdir.glob("run*.csv")):
+                            sweep_runfile = run_params.pop("runfile")
+                            if also_baseline:
+                                logging.info("Running baseline...")
+                                with log_time(newdir / "baseline-time.log"):
+                                    run(
+                                        dawgfile,
+                                        cleanfile,
+                                        None,  # No model
+                                        sweep_runfile,
+                                        outfile=newdir / "run___baseline.tsv",
+                                        fallback=fallback,
+                                        evaluate=evaluate,
+                                        **run_params,
+                                    )
+                            logging.info("Running model...")
+                            with log_time(newdir / "model-time.log"):
                                 run(
                                     dawgfile,
                                     cleanfile,
                                     trainfile,
-                                    run_params.pop("runfile") or None,
-                                    outfile=newdir / "predictions.tsv",
+                                    sweep_runfile,
+                                    outfile=newdir / "run___model.tsv",
                                     fallback=fallback,
+                                    evaluate=evaluate,
                                     **run_params,
                                 )
