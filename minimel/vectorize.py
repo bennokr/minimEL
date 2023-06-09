@@ -5,6 +5,7 @@ import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
+import sys
 import pathlib, argparse, logging
 import itertools
 import shutil
@@ -221,6 +222,12 @@ def vectorize(
         outfile = outfile / fname
     outfile.parent.mkdir(parents=True, exist_ok=True)
 
+    surface_weights = json.load(surface_count_json.open())
+    if not any(len(vs) > 1 for vs in surface_weights.values()):
+        raise Exception(f"No ambiguous names in {surface_count_json}!")
+    n_ambig = sum(1 for vs in surface_weights.values() if len(vs) > 1)
+    logging.info(f"Vectorizing training examples for {n_ambig} ambiguous names")
+
     import dask.bag as db
     from .scale import progress, get_client
 
@@ -248,7 +255,12 @@ def vectorize(
             balanced=balanced,
             language=stem,
             usenil=usenil,
-        ).to_textfiles(f"{outfile}.parts")
+        ).to_textfiles(f"{outfile}.parts", compute=False)
+
+        n = db.from_delayed(data).map_partitions(lambda x: [1]).persist()
+        if logging.root.level < 30:
+            progress(n, out=sys.stderr)
+        logging.info(f"Wrote {sum(n.compute())} partitions")
 
     logging.info(f"Concatenating to {outfile}")
     with outfile.open("wb") as fout:

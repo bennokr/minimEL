@@ -55,6 +55,7 @@ def get_dir_params(dirname: pathlib.Path):
 def experiment(
     root: pathlib.Path = pathlib.Path("."),
     *,
+    outdir: pathlib.Path = None,
     nparts: int = 100,
     head: int = None,
     # Count
@@ -83,12 +84,14 @@ def experiment(
 
     The root directory must contain the following files:
 
+    - `index_*.dawg`: DAWG trie mapping of article names -> numeric IDs
     - `*-disambig.txt`: See `disambig_ent_file` in :obj:`~get_disambig.get_disambig`
 
     Args:
         root: Root directory
 
     Keyword Arguments:
+        outdir: Write outputs to this directory
         nparts: Number of parts to chunk wikidump into
         head: Use only N first lines from each partition
         stem: Stemming language ISO 639-1 (2-letter) code (use X for no stemming)
@@ -111,27 +114,28 @@ def experiment(
         fallback: Additional fallback deterministic surfaceform -> ID json
     """
     root = root.absolute()
-    logging.info(f"Running experiments for {root}")
+    outdir = outdir or root
+    logging.info(f"Running experiments for {root}, outputs in {outdir}")
 
-    indexdbfile = find(root, "index_*.db")
     dawgfile = find(root, "index_*.dawg")
-    wikidump = find(root, "*-pages-articles.xml")
 
     # Get disambiguations
     disambig_ent_file = find(root, "*-disambig.txt")
     if not any(root.glob("disambig.json")):
         logging.info(f"Getting disambiguations...")
+        wikidump = find(root, "*-pages-articles.xml")
         get_disambig(wikidump, dawgfile, disambig_ent_file, nparts=nparts)
     disambigfile = find(root, "disambig.json")
 
     # Get paragraph links
     if not any(root.glob("*-paragraph-links")):
+        wikidump = find(root, "*-pages-articles.xml")
         logging.info(f"Getting paragraph links...")
         get_paragraphs(wikidump, dawgfile)
     paragraphlinks = find(root, "*-paragraph-links")
 
     # Count mentions
-    curdir = root
+    curdir = outdir
     for params in sweep(head=[head], stem=stem, min_count=min_count):
         newdir = curdir / make_dir_params("count", **params)
         if not any(newdir.glob("count*.json")):
@@ -158,6 +162,7 @@ def experiment(
             newdir.mkdir(parents=True, exist_ok=True)
             if not any(newdir.glob("clean*.json")):
                 logging.info(f"Cleaning in {newdir}...")
+                indexdbfile = find(root, "index_*.db")
                 if not clean_params["badentfile"]:
                     clean_params["badentfile"] = disambig_ent_file
                 clean(

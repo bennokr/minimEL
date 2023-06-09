@@ -6,7 +6,7 @@ import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import pathlib, argparse, logging, re, json
-import os, re, codecs
+import os, sys, re, codecs
 import xml.etree.cElementTree as cElementTree
 
 import mwparserfromhell
@@ -120,4 +120,9 @@ def get_paragraphs(
 
         stem = str(wikidump.stem).replace("pages-articles", "paragraph-links")
         outglob = str(wikidump.parent) + "/" + stem + "/*.tsv"
-        tasks = anchors.map("\t".join).to_textfiles(outglob)
+        tasks = anchors.map("\t".join).to_textfiles(outglob, compute=False)
+
+        n = db.from_delayed(data).map_partitions(lambda x: [1]).persist()
+        if logging.root.level < 30:
+            progress(n, out=sys.stderr)
+        logging.info(f"Wrote {sum(n.compute())} partitions")

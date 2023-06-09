@@ -139,7 +139,7 @@ class MiniNED:
         Keyword Arguments:
             all_scores: Output all candidate scores
             upperbound: Create upper bound on performance
-        
+
         Returns:
             Wikidata ID
         """

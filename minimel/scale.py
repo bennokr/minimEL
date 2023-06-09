@@ -3,8 +3,8 @@ import re
 import codecs
 import time
 import logging
-import dask.distributed
 
+import dask.distributed
 from dask.diagnostics import ProgressBar
 
 if logging.root.level < 30:
