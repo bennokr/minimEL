@@ -77,7 +77,8 @@ def experiment(
     bits: typing.List[int] = (20,),
     # Run
     runfile: typing.List[pathlib.Path] = ("",),
-    fallback: pathlib.Path = ("",),
+    use_fallback: typing.List[bool] = (True,),
+    evaluate: typing.List[bool] = (False,),
 ):
     """
     Run all steps to train and evaluate EL models over a parameter sweep.
@@ -111,7 +112,7 @@ def experiment(
         usenil: Use NIL option for training unlinked mentions
         bits: Number of bits of the Vowpal Wabbit feature hash function
         runfile: TSV rows of (ID, {surface -> ID}, text) or ({surface -> ID}, text)
-        fallback: Additional fallback deterministic surfaceform -> ID json
+        use_fallback: Use raw counts as fallback
     """
     root = root.absolute()
     outdir = outdir or root
@@ -213,10 +214,15 @@ def experiment(
                     if any(runfile):
                         for run_params in sweep(
                             runfile=runfile,
-                            fallback=fallback,
+                            use_fallback=use_fallback,
+                            evaluate=evaluate,
                         ):
                             newdir = curdir / make_dir_params("run", **vec_params)
                             newdir.mkdir(parents=True, exist_ok=True)
+
+                            fallback = (
+                                countfile if run_params.pop("use_fallback") else None
+                            )
                             if not any(newdir.glob("run*.csv")):
                                 run(
                                     dawgfile,
@@ -224,5 +230,6 @@ def experiment(
                                     trainfile,
                                     run_params.pop("runfile") or None,
                                     outfile=newdir / "predictions.tsv",
+                                    fallback=fallback,
                                     **run_params,
                                 )

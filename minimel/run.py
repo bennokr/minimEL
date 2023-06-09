@@ -251,23 +251,22 @@ def run(
                 )
                 if pred:
                     ent_pred[surface] = pred
-        if not evaluate:
-            if predict_only or all_scores:
-                if len(ids):
-                    print(ids[i], json.dumps(ent_pred), sep="\t", file=outfile)
-                else:
-                    print(json.dumps(ent_pred), sep="\t", file=outfile)
+        if predict_only or all_scores:
+            if len(ids):
+                print(ids[i], json.dumps(ent_pred), sep="\t", file=outfile)
             else:
-                if len(ids):
-                    print(ids[i], json.dumps(ent_pred), text, sep="\t", file=outfile)
-                else:
-                    print(json.dumps(ent_pred), text, sep="\t", file=outfile)
-            outfile.flush()
+                print(json.dumps(ent_pred), sep="\t", file=outfile)
+        else:
+            if len(ids):
+                print(ids[i], json.dumps(ent_pred), text, sep="\t", file=outfile)
+            else:
+                print(json.dumps(ent_pred), text, sep="\t", file=outfile)
+        outfile.flush()
 
         preds.append(ent_pred)
 
     if len(ents) and evaluate:
-        print(get_scores(ents, preds).T.to_csv(), file=outfile)
+        logging.info(get_scores(ents, preds).T.to_csv())
 
 
 def evaluate(
