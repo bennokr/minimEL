@@ -2,17 +2,13 @@
 
 The `minimel` package provides a framework to create and evaluate small Entity Linking models.
 
+> **Warning**
+> This package is still under construction. A release is planned for the summer of 2023.
+
 ## Evaluation Datasets
 
 - [VoxEL: A Benchmark Dataset for Multilingual Entity Linking](https://figshare.com/articles/dataset/VoxEL/6539675)
 - [Entity Linking in 100 Languages](https://github.com/google-research/google-research/tree/master/dense_representations_for_entity_retrieval/mel)
-
-
-## TODO
-
-- spotlight baseline
-- stopword removal
-
 
 ## IDEAS
 
