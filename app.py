@@ -1,6 +1,7 @@
 from flask import Flask, request
 import dawg_python as dawg
 import os
+import app_deploy
 
 lang_trie = {
     "nl": "../data/nlwiki-20211120.count.min2.salient.completiondawg",
@@ -10,6 +11,7 @@ basedir = os.path.dirname(os.path.realpath(__file__))
 
 app = Flask(__name__)
 
+app.add_url_rule('/update_server', methods=['POST'], view_func=app_deploy.update)
 
 @app.route("/")
 def hello_world():
@@ -91,3 +93,5 @@ def el():
     surface_trie.load(ftrie)
 
     return make_links(surface_trie, text).replace("\n", "<br>")
+
+
