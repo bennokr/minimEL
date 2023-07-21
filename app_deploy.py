@@ -3,6 +3,7 @@ import hmac
 import hashlib
 import logging
 import os
+import git
 
 w_secret = os.environ['SECRET']
 logging.error(w_secret)
