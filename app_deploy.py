@@ -33,8 +33,9 @@ def update():
         if request.get_json().get('ref') != 'refs/heads/master':
             logging.warning('Deploy request for wrong ref')
             abort(abort_code)
-
-        repo = git.Repo('.')
+        
+        basedir = os.path.dirname(os.path.realpath(__file__))
+        repo = git.Repo(basedir)
         origin = repo.remotes.origin
         pull_info = origin.pull()
         commit_hash = pull_info[0].commit.hexsha
