@@ -5,7 +5,7 @@ import logging
 import os
 import git
 
-w_secret = os.environ['SECRET']
+w_secret = os.environ.get('SECRET')
 logging.error(w_secret)
 
 def is_valid_signature(x_hub_signature, data, private_key):
