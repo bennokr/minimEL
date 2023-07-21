@@ -2,6 +2,10 @@ from flask import Flask, request, abort
 import hmac
 import hashlib
 import logging
+import os
+
+w_secret = os.environ['SECRET']
+logging.error(w_secret)
 
 def is_valid_signature(x_hub_signature, data, private_key):
     # x_hub_signature and data are from the webhook payload
