@@ -39,7 +39,7 @@ function link() {
 </script>
 <body>
 <div id="main">
-    <h1>Minimal EL hello world</h1>
+    <h1>Minimal EL</h1>
     <p>
         <select id="lang">
             <option value=nl>Nederlands</option>
