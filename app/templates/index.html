@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head><title>Minimal EL demo</title></head>
+<style>
+body { font-family: sans-serif; }
+#main {margin: 0 auto; max-width: 800px;}
+textarea { width: 100%; height: 8em }
+</style>
+<script type="text/javascript">
+function link() {
+    text = document.getElementById('text').value;
+    lang = document.getElementById('lang').value;
+    document.getElementById('spinner').style.visibility = 'visible';
+
+    fetch(window.location.href.split(/[?#]/)[0] + '/el?' + new URLSearchParams({text: text, lang:lang}))
+    .then(response => response.text()).then(data => {
+        document.getElementById('result').innerHTML = data;
+        document.getElementById('spinner').style.visibility = 'hidden';
+    })
+}
+</script>
+<body>
+<div id="main">
+    <h1>Minimal EL</h1>
+    <p>
+        <select id="lang">
+            {% for code, name in models.items() %}
+            <option value={{ code }}>{{ name }}</option>
+            {% endfor %}
+        </select>
+    </p>
+    <p><textarea id="text" placeholder="Your text here"></textarea></p>
+    <p><button onclick="link()">Link</button><img src="static/load.gif" id="spinner" style="height:1em; visibility:hidden; "/></p>
+    <p id="result"></p>
+</div>
+</body>
+</html>

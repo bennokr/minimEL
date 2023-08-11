@@ -36,7 +36,7 @@ def vw_tok(text):
 
 def vw(
     lines,
-    surface_count_json: pathlib.Path,
+    name_count_json: pathlib.Path,
     ent_feats_csv=None,
     balanced=False,
     language=False,
@@ -47,20 +47,20 @@ def vw(
 
     Args:
         lines: iterable of (pageid, {name: entityid} json, text) tsv lines
-        surface_count_json: path to json file of {name: {entityid: weight}}
+        name_count_json: path to json file of {name: {entityid: weight}}
         ent_feats_csv: path to csv of (entityid,feat1 feat2 feat3 ...)
 
     """
-    surface_weights = json.load(surface_count_json.open())
-    surface_weights = {
+    name_weights = json.load(name_count_json.open())
+    name_weights = {
         m: {int(e.replace("Q", "")): c for e, c in ec.items()}
-        for m, ec in surface_weights.items()
+        for m, ec in name_weights.items()
     }
-    logging.debug(f"Loaded {len(surface_weights)} surface weights")
+    logging.debug(f"Loaded {len(name_weights)} name weights")
 
     if usenil:
-        # Make surfaceform lookup trie
-        surface_trie = dawg.CompletionDAWG(surface_weights)
+        # Make name lookup trie
+        name_trie = dawg.CompletionDAWG(name_weights)
 
     # Load entity features
     ent_feats = None
@@ -99,22 +99,22 @@ def vw(
         labels = []
         for m, e in mention_ent.items():
             for norm in normalize(m, language=language):
-                if norm in surface_weights and e in surface_weights[norm]:
-                    weights = surface_weights[norm]
+                if norm in name_weights and e in name_weights[norm]:
+                    weights = name_weights[norm]
                     for label in vw_label_lines(weights, e, norm, ent_feats):
                         labels.append(label)
 
         if usenil:
-            # add NIL data from surface_trie
+            # add NIL data from name_trie
             for normtext in normalize(text, language=language):
                 normtoks = vw_tok(normtext)
                 for i, tok in enumerate(vw_tok(normtext)):
-                    for comp in surface_trie.keys(tok):
+                    for comp in name_trie.keys(tok):
                         if comp not in mention_ent:
                             comp_toks = vw_tok(comp)
                             if tokens[i : i + len(comp_toks)] == comp_toks:
                                 # NIL match
-                                weights = surface_weights[comp]
+                                weights = name_weights[comp]
                                 for label in vw_label_lines(
                                     weights, -1, comp, ent_feats
                                 ):
@@ -180,7 +180,7 @@ def embed(paragraphs, embeddingsfile, dim=None):
 
 def vectorize(
     paragraphlinks: pathlib.Path,
-    surface_count_json: pathlib.Path,
+    name_count_json: pathlib.Path,
     *,
     outfile: pathlib.Path = None,
     head: int = None,
@@ -195,7 +195,7 @@ def vectorize(
 
     Args:
         paragraphlinks: Paragraph links directory
-        surface_count_json: Surfaceform count json file
+        name_count_json: Surfaceform count json file
 
     Keyword Arguments:
         outfile: Output file or directory (default: `vec*.parts`)
@@ -209,9 +209,9 @@ def vectorize(
     """
 
     if vectorizer:
-        name = surface_count_json.stem + "." + vectorizer.stem
+        name = name_count_json.stem + "." + vectorizer.stem
     else:
-        name = surface_count_json.stem
+        name = name_count_json.stem
 
     b = ".bal" if balanced else ""
     f = f".{ent_feats_csv.stem}" if ent_feats_csv else ""
@@ -222,10 +222,10 @@ def vectorize(
         outfile = outfile / fname
     outfile.parent.mkdir(parents=True, exist_ok=True)
 
-    surface_weights = json.load(surface_count_json.open())
-    if not any(len(vs) > 1 for vs in surface_weights.values()):
-        raise Exception(f"No ambiguous names in {surface_count_json}!")
-    n_ambig = sum(1 for vs in surface_weights.values() if len(vs) > 1)
+    name_weights = json.load(name_count_json.open())
+    if not any(len(vs) > 1 for vs in name_weights.values()):
+        raise Exception(f"No ambiguous names in {name_count_json}!")
+    n_ambig = sum(1 for vs in name_weights.values() if len(vs) > 1)
     logging.info(f"Vectorizing training examples for {n_ambig} ambiguous names")
 
     import dask.bag as db
@@ -249,7 +249,7 @@ def vectorize(
         logging.info(f"Writing to {outfile}.parts")
         data = bag.map_partitions(
             vw,
-            surface_count_json,
+            name_count_json,
             head=head,
             ent_feats_csv=ent_feats_csv,
             balanced=balanced,

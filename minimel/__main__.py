@@ -7,7 +7,7 @@ subcommands = [
     get_disambig,
     get_paragraphs,
     count,
-    count_surface,
+    count_names,
     clean,
     vectorize,
     ent_feats,
@@ -55,7 +55,8 @@ def main():
                     memory="64GB",
                     project="minimel",
                     walltime="00:15:00",
-                    dashboard_address=":8883",
+                    # dashboard_address=":8883",
+                    scheduler_options={"dashboard_address": ":8883"},
                 )
                 cluster.scale(jobs=16)
                 client = Client(cluster)

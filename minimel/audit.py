@@ -3,7 +3,7 @@ import pathlib, collections, sys
 
 
 def audit(
-    modelfile: pathlib.Path, datafile: pathlib.Path, surface: str, limit: int = 1000
+    modelfile: pathlib.Path, datafile: pathlib.Path, name: str, limit: int = 1000
 ):
     """
     Print prediction scores and model coefficients
@@ -32,7 +32,7 @@ def audit(
         if line:
             ex.append(line)
         else:
-            filt = [l for l in ex if f" {surface}=" in l]
+            filt = [l for l in ex if f" {name}=" in l]
             if filt:
                 gold_count[int(filt[0].split(":")[0])] += 1
                 model.predict([ex[0]] + filt)

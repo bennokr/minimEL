@@ -38,9 +38,9 @@ def get_scores(golds, preds):
 
     gold, pred = zip(
         *(
-            ((gs or {}).get(surface, -1) or -1, (ps or {}).get(surface, -1) or -1)
+            ((gs or {}).get(name, -1) or -1, (ps or {}).get(name, -1) or -1)
             for (gs, ps) in zip(golds, preds)
-            for surface in set(gs or {}) | set(ps or {})
+            for name in set(gs or {}) | set(ps or {})
         )
     )
     res = pd.DataFrame(
@@ -73,14 +73,14 @@ class MiniNED:
 
         Args:
             dawgfile: DAWG trie file of Wikipedia > Wikidata count
-            candidatefile: Candidate {surfaceform -> [ID]} json
+            candidatefile: Candidate {name -> [ID]} json
             modelfile: Vowpal Wabbit model
 
         Keyword Arguments:
             vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
                 embeddings. If unset, use HashingVectorizer.
             ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
-            fallback: Additional fallback deterministic surfaceform -> ID json
+            fallback: Additional fallback deterministic name -> ID json
         """
 
         self.lang = lang
@@ -128,13 +128,13 @@ class MiniNED:
         else:
             return max(preds.items(), key=lambda x: x[1])[0]
 
-    def predict(self, text: str, surface: str, upperbound=None, all_scores=False):
+    def predict(self, text: str, name: str, upperbound=None, all_scores=False):
         """
         Make NED prediction.
 
         Args:
             text: Some text
-            surface: An entity name in `text`
+            name: An entity name in `text`
 
         Keyword Arguments:
             all_scores: Output all candidate scores
@@ -146,14 +146,14 @@ class MiniNED:
         pred = None
         if upperbound:
             gold = str(upperbound)
-            for norm in normalize(surface, language=self.lang):
+            for norm in normalize(name, language=self.lang):
                 if (norm in self.count) and (gold in self.count[norm]):
                     pred = gold
             if not pred:
-                if str(self.index.get(surface.replace(" ", "_"), -1)) == gold:
+                if str(self.index.get(name.replace(" ", "_"), -1)) == gold:
                     pred = gold
         else:
-            for norm in normalize(surface, language=self.lang):
+            for norm in normalize(name, language=self.lang):
                 ent_cand = self.candidates.get(norm, None)
                 if ent_cand and self.model:  # Vowpal Wabbit model
                     pred = self._model_predict(
@@ -162,8 +162,8 @@ class MiniNED:
                 elif norm in self.count:  # fallback: most common meaning
                     dist = self.count[norm]
                     pred = max(dist, key=lambda x: dist[x])
-                elif surface.replace(" ", "_") in self.index:  # deterministic index
-                    pred = self.index[surface.replace(" ", "_")]
+                elif name.replace(" ", "_") in self.index:  # deterministic index
+                    pred = self.index[name.replace(" ", "_")]
         if pred:
             if all_scores:
                 if type(pred) != dict:
@@ -194,17 +194,17 @@ def run(
 
     Args:
         dawgfile: DAWG trie file of Wikipedia > Wikidata count
-        candidatefile: Candidate {surfaceform -> [ID]} json
+        candidatefile: Candidate {name -> [ID]} json
         modelfile: Vowpal Wabbit model
         runfiles: Input file (- or absent for standard input). TSV rows of
-            (ID, {surface -> ID}, text) or ({surface -> ID}, text) or (text)
+            (ID, {name -> ID}, text) or ({name -> ID}, text) or (text)
 
     Keyword Arguments:
         outfile: Write outputs to file (default: stdout)
         vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
             embeddings. If unset, use HashingVectorizer.
         ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
-        fallback: Additional fallback deterministic surfaceform -> ID json
+        fallback: Additional fallback deterministic name -> ID json
         evaluate: Report evaluation scores instead of predictions
         predict_only: Only print predictions, not original text
         all_scores: Output all candidate scores
@@ -244,13 +244,13 @@ def run(
     for i, text in enumerate(it):
         ent_pred = {}
         if len(ents):
-            for surface in ents[i]:
-                gold = ents[i][surface] if upperbound else None
+            for name in ents[i]:
+                gold = ents[i][name] if upperbound else None
                 pred = ned.predict(
-                    text, surface, upperbound=gold, all_scores=all_scores
+                    text, name, upperbound=gold, all_scores=all_scores
                 )
                 if pred:
-                    ent_pred[surface] = pred
+                    ent_pred[name] = pred
         if predict_only or all_scores:
             if len(ids):
                 print(ids[i], json.dumps(ent_pred), sep="\t", file=outfile)

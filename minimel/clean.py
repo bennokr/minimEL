@@ -8,7 +8,7 @@ import sys, pathlib, argparse, logging, typing
 from .normalize import normalize
 
 
-def get_titles(indexdbfile, ents=None, surfaceforms=None, language=None):
+def get_titles(indexdbfile, ents=None, names=None, language=None):
     """Get Wikipedia article titles"""
     db = sqlite3.connect(indexdbfile)
     (total,) = next(db.execute("select count(*) from mapping"))
@@ -21,7 +21,7 @@ def get_titles(indexdbfile, ents=None, surfaceforms=None, language=None):
         if pagetitle and wikidata_id:
             for title in normalize(pagetitle, language=language):
                 wi = int(wikidata_id[1:])
-                if (not ents) or (wi in ents) or (title in surfaceforms):
+                if (not ents) or (wi in ents) or (title in names):
                     title_ids.setdefault(title, set()).add(wi)
                     id_titles.setdefault(wi, set()).add(title)
     return title_ids, id_titles
@@ -72,12 +72,12 @@ def tokens(s, N=3):
     )
 
 
-def tokenscore(surfaceform, count, id_titles):
+def tokenscore(name, count, id_titles):
     """Calculate the average mean token overlap between
-    the surface form & the titles of candidate labels
+    the name & the titles of candidate labels
     (asymmetric jaccard index)
     """
-    stok = tokens(surfaceform)
+    stok = tokens(name)
     if not stok:
         return 0
     leftjacc = lambda a, b: len(a & b) / len(a)
@@ -105,7 +105,7 @@ def clean(
 
     First, only keep candidate entities that either have minimal counts or are
     linked from disambiguation pages.
-    If the tokenscore is low, then surfaceforms with high entropy or countratio
+    If the tokenscore is low, then names with high entropy or countratio
     (len / sum) are removed.
 
     Args:
@@ -120,65 +120,65 @@ def clean(
         freqnorm: Normalize counts by total entity frequency
         badentfile: Files of entity IDs to ignore, one per line
         tokenscore_threshold: Threshold for mean asymmentric Jaccard index
-            between surface form and candidate entity labels
+            between name and candidate entity labels
         entropy_threshold: Entropy threshold (high entropy = flat dist)
         countratio_threshold: Count-ratio (len / sum) threshold
-        quantile_top_shadowed: Only train models for a % surfaceforms with highest counts
+        quantile_top_shadowed: Only train models for a % names with highest counts
             of candidate entities shadowed by the top candidate
     """
-    surface_ent_counts = json.load(open(countfile))
+    name_ent_counts = json.load(open(countfile))
     total_ent_count = collections.Counter()
-    ss = surface_ent_counts.items()
+    ss = name_ent_counts.items()
     if logging.root.level < 30:
         ss = tqdm.tqdm(ss, desc="Counting entities...")
     for s, ec in ss:
         ec = {int(e[1:]): c for e, c in ec.items()}
         for e, c in ec.items():
             total_ent_count[e] += c
-        surface_ent_counts[s] = collections.Counter(ec)
+        name_ent_counts[s] = collections.Counter(ec)
 
-    disambig_surfaceforms = set()
+    disambig_names = set()
     for s, es in json.load(open(disambigfile)).items():
         for n in normalize(s, language=stem):
-            disambig_surfaceforms.add(n)
+            disambig_names.add(n)
             for e in es:
-                surface_ent_counts.setdefault(n, collections.Counter())[e] += 1
+                name_ent_counts.setdefault(n, collections.Counter())[e] += 1
 
     # Filter out bad entities
     ents = set(total_ent_count)
     badents = set(int(q.replace("Q", "")) for q in open(badentfile).readlines())
     logging.info(f"Removing {len(badents & ents)} bad entities")
     ents -= badents
-    for a, ec in surface_ent_counts.items():
+    for a, ec in name_ent_counts.items():
         norm = {}
         if freqnorm:
             norm = {e: total_ent_count.get(e, 1) for e in ec}
             maxnorm = max(norm.values())
             norm = {e: c / maxnorm for e, c in norm.items()}
-        surface_ent_counts[a] = {
+        name_ent_counts[a] = {
             e: int(c * norm.get(e, 1)) + 1
             for e, c in ec.items()
             if e in ents and c >= min_count
         }
-    surface_ent_counts = {s: ec for s, ec in surface_ent_counts.items() if ec}
+    name_ent_counts = {s: ec for s, ec in name_ent_counts.items() if ec}
 
     title_ids, id_titles = get_titles(
-        str(indexdbfile), ents, set(surface_ent_counts), language=stem
+        str(indexdbfile), ents, set(name_ent_counts), language=stem
     )
 
-    # Collect bad surface forms
+    # Collect bad names
     high_entropy, high_countratio, no_tokenmatch = set(), set(), set()
-    ss = surface_ent_counts.items()
+    ss = name_ent_counts.items()
     if logging.root.level < 30:
-        ss = tqdm.tqdm(ss, desc="Filtering surfaceforms...")
+        ss = tqdm.tqdm(ss, desc="Filtering names...")
     for s, ent_count in ss:
-        # Disambiguation surfaceforms are always good
-        if s in disambig_surfaceforms:
+        # Disambiguation names are always good
+        if s in disambig_names:
             continue
         tscore = tokenscore(s, ent_count, id_titles)
         if tscore < tokenscore_threshold:
             # If the tokenscore is low,
-            # then surfaceforms with high entropy or countratio are bad
+            # then names with high entropy or countratio are bad
             if entropy(ent_count) > entropy_threshold:
                 high_entropy.add(s)
             elif countratio(ent_count) > countratio_threshold:
@@ -188,15 +188,15 @@ def clean(
             # possible extension: track possible abbreviations
             no_tokenmatch.add(s)
 
-    bad_surfaceforms = high_entropy | high_countratio | no_tokenmatch
-    logging.info(f"Filtering out {len(bad_surfaceforms)} bad surfaceforms")
+    bad_names = high_entropy | high_countratio | no_tokenmatch
+    logging.info(f"Filtering out {len(bad_names)} bad names")
 
     good_counts = {
         s: dict(sorted(ec.items(), key=lambda x: -x[1]))
-        for s, ec in surface_ent_counts.items()
-        if s not in bad_surfaceforms and ec
+        for s, ec in name_ent_counts.items()
+        if s not in bad_names and ec
     }
-    logging.info(f"Keeping {len(good_counts)} good surfaceforms")
+    logging.info(f"Keeping {len(good_counts)} good names")
 
     if quantile_top_shadowed:
         top_counts, shadow_counts = {}, []

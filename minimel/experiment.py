@@ -119,10 +119,10 @@ def experiment(
         freqnorm: Normalize counts by total entity frequency (1/0)
         badentfile: File of entity IDs to ignore, one per line (default: `*-disambig.txt`)
         tokenscore_threshold: Threshold for mean asymmentric Jaccard index
-            between surface form and candidate entity labels
+            between name and candidate entity labels
         entropy_threshold: Entropy threshold (high entropy = flat dist)
         countratio_threshold: Count-ratio (len / sum) threshold
-        quantile_top_shadowed: Only train models for a % surfaceforms with highest counts
+        quantile_top_shadowed: Only train models for a % names with highest counts
             of candidate entities shadowed by the top candidate
         vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
             embeddings. If unset, use tokens directly.
@@ -130,7 +130,7 @@ def experiment(
         balanced: Use balanced training
         usenil: Use NIL option for training unlinked mentions
         bits: Number of bits of the Vowpal Wabbit feature hash function
-        runfile: TSV rows of (ID, {surface -> ID}, text) or ({surface -> ID}, text)
+        runfile: TSV rows of (ID, {name -> ID}, text) or ({name -> ID}, text)
         use_fallback: Use raw counts as fallback
         also_baseline: Also run a baseline model without model predictions
         evaluate: Write evaluation scores to logging output

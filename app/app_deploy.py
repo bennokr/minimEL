@@ -34,7 +34,7 @@ def update():
             logging.warning('Deploy request for wrong ref')
             abort(abort_code)
         
-        basedir = os.path.dirname(os.path.realpath(__file__))
+        basedir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
         repo = git.Repo(basedir)
         origin = repo.remotes.origin
         pull_info = origin.pull()
