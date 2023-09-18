@@ -5,11 +5,10 @@ import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-import pandas as pd
 import pathlib, logging
-import json, collections
-import tqdm
+import json
 
+import tqdm
 
 def ent_feats(
     spo_parquet: pathlib.Path,
@@ -27,6 +26,8 @@ def ent_feats(
             <1: Quantile of feature count
             >1: Minimum feature count
     """
+    import pandas as pd
+
     logging.info(f"Loading triples...")
     spo = pd.read_parquet(spo_parquet).set_index("s")
     logging.info(f"Loaded {len(spo)} triples")
@@ -53,7 +54,7 @@ def ent_feats(
 
     # Collect features per entity
     sfeats = {}
-    for s in tqdm.tqdm(scount.index):
+    for s in tqdm.tqdm(scount.index, "Subjects"):
         feats = spo.loc[s:s].merge(pocount.reset_index())
         f = "P" + feats["p"].astype("str") + "Q" + feats["o"].astype("str")
         sfeats[s] = " ".join(set(f))

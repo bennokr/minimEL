@@ -1,6 +1,5 @@
 """Query Wikidata for specific page-type Wikidata entity URIs"""
-import requests, sys, urllib, tqdm
-import pandas as pd
+import requests
 
 url = "https://query.wikidata.org/sparql"
 query_templates = {

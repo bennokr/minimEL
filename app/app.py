@@ -1,7 +1,6 @@
 import os, logging
 
-from flask import Flask, request, abort, render_template
-import dawg_python as dawg
+from flask import Flask, request, render_template
 
 import minimel
 from minimel.mentions import get_matches, setup_matcher

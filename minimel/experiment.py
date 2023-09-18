@@ -1,7 +1,6 @@
 import typing
 import pathlib
 import logging
-import os
 import itertools
 import time
 import datetime

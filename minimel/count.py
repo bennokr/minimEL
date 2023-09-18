@@ -7,11 +7,6 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import sys, pathlib, argparse, logging, json, collections, re, html, itertools
 
-try:
-    import dawg
-except ImportError:
-    import dawg_python as dawg
-
 from .normalize import normalize
 from minimel.vectorize import vw_tok
 
@@ -93,6 +88,3 @@ def count(
         outfile.parent.mkdir(parents=True, exist_ok=True)
         logging.info(f"Writing to {outfile}")
         a_e_count.compute().to_json(outfile)
-
-
-

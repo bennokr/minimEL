@@ -6,20 +6,13 @@ import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import sys
-import pathlib, argparse, logging
+import pathlib, logging
 import itertools
 import shutil
 import re
-import html
 import pickle
 import json
 import math
-
-try:
-    import dawg
-except ImportError:
-    import dawg_python as dawg
-import tqdm
 
 from .normalize import normalize
 
@@ -59,6 +52,11 @@ def vw(
     logging.debug(f"Loaded {len(name_weights)} name weights")
 
     if usenil:
+        try:
+            import dawg
+        except ImportError:
+            import dawg_python as dawg
+            
         # Make name lookup trie
         name_trie = dawg.CompletionDAWG(name_weights)
 
@@ -266,6 +264,8 @@ def vectorize(
     with outfile.open("wb") as fout:
         it = pathlib.Path(f"{outfile}.parts").glob("*")
         if logging.root.level < 30:
+            import tqdm
+            
             it = tqdm.tqdm(list(it), desc="Concatenating")
         for fin in it:
             with fin.open("rb") as f:

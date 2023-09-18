@@ -1,7 +1,7 @@
 """
 Convert Wikimapper index to IntDAWG.
 """
-import sqlite3, pathlib, argparse, logging, sys
+import sqlite3, pathlib, logging, sys
 
 import tqdm
 

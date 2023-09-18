@@ -5,20 +5,15 @@ import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-import sys, pathlib, argparse, logging, json
+import sys, pathlib, logging, json
 import xml.etree.cElementTree as cElementTree
-
-import mwparserfromhell
-
-try:
-    import dawg
-except ImportError:
-    import dawg_python as dawg
 
 from .scale import fileparts
 
 
 def get_list_links(page, disambig_template=None):
+    import mwparserfromhell
+
     code = mwparserfromhell.parse(page)
     nodes = code.filter(matches=(lambda x: str(x).strip()), recursive=True)
 
@@ -40,6 +35,11 @@ def get_list_links(page, disambig_template=None):
 
 
 def get_disambig_links(lines, dawgfile, disambig_ent_file=None, disambig_template=None):
+    try:
+        import dawg
+    except ImportError:
+        import dawg_python as dawg
+        
     index = dawg.IntDAWG()
     index.load(dawgfile)
 

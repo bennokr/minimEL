@@ -1,5 +1,9 @@
+fonts
+data
 wiki
 evaluation/*/
+spotlight/*/
+dask*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
