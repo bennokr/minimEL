@@ -230,8 +230,6 @@ def run(
     )
 
     ids, ents, texts = (), (), ()
-    import itertools
-
     lines = iter(line for f in runfiles for line in f)
     peek = lines.next()
     lines = itertools.chain([peek], lines)
@@ -292,7 +290,7 @@ def evaluate(
 
     """
     import pandas as pd
-    
+
     data = pd.read_csv(str(goldfile), sep="\t", header=None)
     assert data.shape[1] > 1
     gold = data[0] if data.shape[1] == 2 else data.set_index(0)[1]

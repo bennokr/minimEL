@@ -4,10 +4,10 @@ from flask import Flask, request, render_template
 
 import minimel
 from minimel.mentions import get_matches, setup_matcher
+
 import app_deploy
 
-app = Flask(minimel.__name__, root_path='../app/')
-
+app = Flask(__name__)
 app.add_url_rule('/update_server', methods=['POST'], view_func=app_deploy.update)
 
 
