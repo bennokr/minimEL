@@ -1,4 +1,4 @@
-import os, logging
+import pathlib, logging
 
 from flask import Flask, request, render_template
 
@@ -16,11 +16,11 @@ models = {
     "simple": "Simple English",
 }
 app.logger.info(f'Loading matchers...')
+basedir = pathlib.Path(__file__).parent.parent
 lang_matcher = {
     # "nl": setup_matcher("../wiki/nlwiki-20220301/count.min2.json"),
-    "simple": setup_matcher("../wiki/simplewiki-20211120/count.min2.json"),
+    "simple": setup_matcher(basedir / "wiki/simplewiki-20211120/count.min2.json"),
 }
-basedir = os.path.dirname(os.path.realpath(__file__))
 
 
 @app.route("/")
