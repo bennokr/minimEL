@@ -22,6 +22,13 @@ lang_matcher = {
     "simple": setup_matcher(basedir / "wiki/simplewiki-20211120/count.min2.json"),
 }
 
+app.logger.info(f'Loading NED models...')
+lang_ned = {
+    "simple": minimel.MiniNED(
+        basedir / "wiki/simplewiki-20211120/index_simplewiki-20211120.dawg"
+    )
+}
+
 
 @app.route("/")
 def index():
@@ -30,7 +37,7 @@ def index():
     )
 
 
-def make_links(matcher, text):
+def make_links(text, matcher, ned):
     matches = {}
     for start, m in get_matches(matcher, text.lower()):
         matches.setdefault(start, set()).add(m)
@@ -41,7 +48,8 @@ def make_links(matcher, text):
             comp = max(pos_matches, key=len)
             out += text[offset:start]
             w = text[start : start + len(comp)]
-            out += f'<a href="#{start}">{w}</a>'
+            link = ned.predict(text, w)
+            out += f'<a href="https://www.wikidata.org/wiki/Q{link}">{w}</a>'
             offset = start + len(comp)
     out += text[offset:]
     return out
@@ -53,7 +61,8 @@ def el():
     lang = request.args.get("lang", None)
 
     matcher = lang_matcher[lang]
+    ned = lang_ned[lang]
 
-    return make_links(matcher, text).replace("\n", "<br>")
+    return make_links(text, matcher, ned).replace("\n", "<br>")
 
 

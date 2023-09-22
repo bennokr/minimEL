@@ -70,7 +70,7 @@ class MiniNED:
         Named Entity Disambiguation class
 
         Args:
-            dawgfile: DAWG trie file of Wikipedia > Wikidata count
+            dawgfile: DAWG trie file of Wikipedia > Wikidata id
             candidatefile: Candidate {name -> [ID]} json
             modelfile: Vowpal Wabbit model
 

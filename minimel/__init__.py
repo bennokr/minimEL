@@ -8,6 +8,6 @@ from .clean import clean
 from .ent_feats import ent_feats
 from .vectorize import vectorize
 from .train import train
-from .run import run, evaluate
+from .run import run, evaluate, MiniNED
 from .audit import audit
 from .experiment import experiment
