@@ -12,9 +12,23 @@ function link() {
     lang = document.getElementById('lang').value;
     document.getElementById('spinner').style.visibility = 'visible';
 
-    fetch(window.location.href.split(/[?#]/)[0] + '/el?' + new URLSearchParams({text: text, lang:lang}))
+    params = new URLSearchParams({text: text, lang:lang});
+    fetch(window.location.href.split(/[?#]/)[0] + '/el?' + params)
     .then(response => response.text()).then(data => {
         document.getElementById('result').innerHTML = data;
+        document.getElementById('spinner').style.visibility = 'hidden';
+    })
+}
+
+function random() {
+    lang = document.getElementById('lang').value;
+    document.getElementById('spinner').style.visibility = 'visible';
+
+    params = new URLSearchParams({lang:lang});
+    fetch(window.location.href.split(/[?#]/)[0] + '/random?' + params)
+    .then(response => response.text()).then(data => {
+        document.getElementById('result').innerHTML = "";
+        document.getElementById('text').value = data;
         document.getElementById('spinner').style.visibility = 'hidden';
     })
 }
@@ -24,10 +38,11 @@ function link() {
     <h1>Minimal EL</h1>
     <p>
         <select id="lang">
-            {% for code, name in models.items() %}
-            <option value={{ code }}>{{ name }}</option>
+            {% for code, model in models.items() %}
+            <option value={{ code }}>{{ model.name }}</option>
             {% endfor %}
         </select>
+        <button onclick="random()">Random Example</button>
     </p>
     <p><textarea id="text" placeholder="Your text here"></textarea></p>
     <p><button onclick="link()">Link</button><img src="static/load.gif" id="spinner" style="height:1em; visibility:hidden; "/></p>

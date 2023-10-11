@@ -1,4 +1,5 @@
-import pathlib, logging
+import pathlib
+from dataclasses import dataclass
 
 from flask import Flask, request, render_template
 
@@ -10,22 +11,23 @@ import app_deploy
 app = Flask(__name__)
 app.add_url_rule('/update_server', methods=['POST'], view_func=app_deploy.update)
 
+@dataclass
+class Model:
+    name: str
+    matcher: None #'AhoCorasick'
+    ned: minimel.MiniNED
+    eval: pathlib.Path
 
-models = {
-    # "nl": "Nederlands",
-    "simple": "Simple English",
-}
-app.logger.info(f'Loading matchers...')
 basedir = pathlib.Path(__file__).parent.parent
-lang_matcher = {
-    # "nl": setup_matcher("../wiki/nlwiki-20220301/count.min2.json"),
-    "simple": setup_matcher(basedir / "wiki/simplewiki-20211120/count.min2.json"),
-}
-
-app.logger.info(f'Loading NED models...')
-lang_ned = {
-    "simple": minimel.MiniNED(
-        basedir / "wiki/simplewiki-20211120/index_simplewiki-20211120.dawg"
+app.logger.info(f'Loading models...')
+models = {
+    "simple": Model(
+        name="Simple English",
+        matcher=setup_matcher(basedir / "wiki/simplewiki-20211120/count.min2.json"),
+        ned=minimel.MiniNED(
+            basedir / "wiki/simplewiki-20211120/index_simplewiki-20211120.dawg"
+        ),
+        eval= basedir / "evaluation/Mewsli-9/en.tsv",
     )
 }
 
@@ -49,20 +51,28 @@ def make_links(text, matcher, ned):
             out += text[offset:start]
             w = text[start : start + len(comp)]
             link = ned.predict(text, w)
-            out += f'<a href="https://www.wikidata.org/wiki/Q{link}">{w}</a>'
+            if link:
+                out += f'<a href="https://www.wikidata.org/wiki/Q{link}">{w}</a>'
+            else:
+                out += w
             offset = start + len(comp)
     out += text[offset:]
     return out
 
+@app.route("/random")
+def random():
+    from random import choice
+    lang = request.args.get("lang", None)
+    model = models[lang]
+    _, _, texts = zip(*(l.split('\t') for l in open(model.eval)))
+    return choice(texts).replace('  ', '\n')
 
 @app.route("/el")
 def el():
     text = request.args.get("text", "")
     lang = request.args.get("lang", None)
+    model = models[lang]
 
-    matcher = lang_matcher[lang]
-    ned = lang_ned[lang]
-
-    return make_links(text, matcher, ned).replace("\n", "<br>")
+    return make_links(text, model.matcher, model.ned).replace("\n", "<br>")
 
 
