@@ -127,7 +127,7 @@ def get_paragraphs(
         outglob = str(wikidump.parent) + "/" + stem + "/*.tsv"
         tasks = anchors.map("\t".join).to_textfiles(outglob, compute=False)
 
-        n = db.from_delayed(data).map_partitions(lambda x: [1]).persist()
+        n = db.from_delayed(tasks).map_partitions(lambda x: [1]).persist()
         if logging.root.level < 30:
             progress(n, out=sys.stderr)
         logging.info(f"Wrote {sum(n.compute())} partitions")
