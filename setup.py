@@ -13,7 +13,7 @@ setup(
     entry_points={"console_scripts": ["minimel = minimel.__main__:main"]},
     install_requires=["vowpalwabbit", "DAWG-Python", "tqdm", "defopt", "pandas"],
     extras_require={
-        "train": ["mwparserfromhell", "dask[distributed]", "DAWG", "seaborn", "dask_jobqueue"],
+        "train": ["wikimapper", "mwparserfromhell", "dask[distributed]", "DAWG", "seaborn", "dask_jobqueue"],
         "mentions": ["ahocorasick-rs"],
         "stem": ["icu_tokenizer"],
         "ja": ["mecab-python3", "unidic-lite"],

@@ -8,8 +8,6 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 import sys, pathlib, logging, json
 import xml.etree.cElementTree as cElementTree
 
-from .scale import fileparts
-
 
 def get_list_links(page, disambig_template=None):
     import mwparserfromhell
@@ -94,7 +92,7 @@ def get_disambig(
     """
 
     import dask.bag as db
-    from .scale import progress, get_client
+    from .scale import progress, get_client, fileparts
 
     if disambig_template:
         logging.info(
