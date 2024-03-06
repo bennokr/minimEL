@@ -24,11 +24,12 @@ def get_matches(matcher, text, offsets=True, stem=None):
         yield (start, t) if offsets else t
 
 
-def setup_matcher(countfile):
+def setup_matcher(countfile, names=None):
     from ahocorasick_rs import AhoCorasick, MatchKind, Implementation
 
-    log.info(f"Setting up AhoCorasick from {countfile}")
-    names = list(json.load(open(countfile)))
+    if not names:
+        log.info(f"Setting up AhoCorasick from {countfile}")
+        names = list(json.load(open(countfile)))
     matcher = AhoCorasick(
         names,
         matchkind=MatchKind.LeftmostLongest,

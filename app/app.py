@@ -1,5 +1,6 @@
 import pathlib
 from dataclasses import dataclass
+import json
 
 from flask import Flask, request, render_template
 
@@ -39,23 +40,32 @@ def index():
     )
 
 
-def make_links(text, matcher, ned):
+def make_links(text, matcher, ned, gold=None):
+
+    # Gazetteer mention detection
     matches = {}
     for start, m in get_matches(matcher, text.lower()):
         matches.setdefault(start, set()).add(m)
 
+    if gold:
+        gold_matcher = setup_matcher(None, names=list(gold))
+        gold_matches = {}
+        for start, m in get_matches(gold_matcher, text):
+            gold_matches.setdefault(start, {})[m] = gold[m]
+
     offset, out = 0, ""
-    for start, pos_matches in sorted(matches.items()):
-        if start >= offset:
-            comp = max(pos_matches, key=len)
+    positions = sorted(set(matches) | set(gold_matches))
+    for start in positions:
+        if start >= offset and start in matches:
+            matched = max(matches[start], key=len)
             out += text[offset:start]
-            w = text[start : start + len(comp)]
+            w = text[start : start + len(matched)]
             link = ned.predict(text, w)
             if link:
                 out += f'<a href="https://www.wikidata.org/wiki/Q{link}">{w}</a>'
             else:
                 out += w
-            offset = start + len(comp)
+            offset = start + len(matched)
     out += text[offset:]
     return out
 
@@ -64,15 +74,17 @@ def random():
     from random import choice
     lang = request.args.get("lang", None)
     model = models[lang]
-    _, _, texts = zip(*(l.split('\t') for l in open(model.eval)))
-    return choice(texts).replace('  ', '\n')
+    lines =  open(model.eval).readlines()
+    _, gold, text = choice(lines).split('\t')
+    return json.dumps({'gold':gold, 'text':text.replace('  ', '\n')})
 
 @app.route("/el")
 def el():
     text = request.args.get("text", "")
+    gold = json.loads(request.args.get("gold", "{}"))
     lang = request.args.get("lang", None)
     model = models[lang]
 
-    return make_links(text, model.matcher, model.ned).replace("\n", "<br>")
+    return make_links(text, model.matcher, model.ned, gold=gold).replace("\n", "<br>")
 
 
