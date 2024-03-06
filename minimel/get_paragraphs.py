@@ -41,7 +41,7 @@ def get_text(w):
                     text += get_str(n)
         else:
             text += get_str(p)
-    return text.replace("\n", " ").strip()
+    return text.replace("\n", " ").replace("\t", " ").strip()
 
 
 def get_links(w, index):

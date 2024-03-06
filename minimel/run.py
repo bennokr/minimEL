@@ -211,7 +211,7 @@ def run(
         upperbound: Create upper bound on performance
     """
     if (not any(runfiles)) or ("-" in runfiles):
-        runfiles = (sys.stdin,)
+        runfiles = (None,)
     logging.debug(f"Reading from {runfiles}")
     if (not outfile) or (outfile == "-"):
         outfile = sys.stdout
@@ -230,8 +230,8 @@ def run(
     )
 
     ids, ents, texts = (), (), ()
-    lines = iter(line for f in runfiles for line in f)
-    peek = lines.next()
+    lines = iter(line for f in runfiles for line in (open(f) if f else sys.stdin))
+    peek = next(lines)
     lines = itertools.chain([peek], lines)
     n_tabs = len(peek.split('\t'))
     if n_tabs == 1:
