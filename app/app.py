@@ -43,29 +43,75 @@ def index():
 def make_links(text, matcher, ned, gold=None):
 
     # Gazetteer mention detection
-    matches = {}
+    pred_matches = {}
     for start, m in get_matches(matcher, text.lower()):
-        matches.setdefault(start, set()).add(m)
+        m = text[start : start + len(m)]
+        pred = ned.predict(text, m)
+        if pred:
+            pred_matches[(start, start+len(m))] = (m, pred)
 
     if gold:
         gold_matcher = setup_matcher(None, names=list(gold))
         gold_matches = {}
         for start, m in get_matches(gold_matcher, text):
-            gold_matches.setdefault(start, {})[m] = gold[m]
+            gold_matches[(start, start+len(m))] = (m, gold[m])
 
-    offset, out = 0, ""
-    positions = sorted(set(matches) | set(gold_matches))
-    for start in positions:
-        if start >= offset and start in matches:
-            matched = max(matches[start], key=len)
-            out += text[offset:start]
-            w = text[start : start + len(matched)]
-            link = ned.predict(text, w)
-            if link:
-                out += f'<a href="https://www.wikidata.org/wiki/Q{link}">{w}</a>'
+    # Find connected components of overlapping matches
+    positions = sorted(set(pred_matches) | set(gold_matches))
+    i, components = 0, {}
+    while i < len(positions):
+        _, offset = positions[i]
+        components[i] = component = set([i])
+        # find the next clear position
+        while (i:=i+1) < len(positions):
+            start, end = positions[i]
+            if start < offset:
+                component.add(i)
+                offset = max(offset, end)
             else:
-                out += w
-            offset = start + len(matched)
+                break
+
+    offset, out = 0, ''
+    for component in components.values():
+        preds = set()
+        for i in component:
+            p = positions[i]
+            if p in pred_matches:
+                preds.add( (p, pred_matches[p]) )
+        
+        golds = set()
+        for i in component:
+            p = positions[i]
+            if p in gold_matches:
+                golds.add( (p, gold_matches[p]) )
+        
+        starts, ends = zip(*[positions[i] for i in component])
+        start, end = min(starts), max(ends)
+        out += text[offset:start]
+        if preds == golds:
+            # True Positive
+            for _, (name, link) in golds:
+                out += f'<a class="tp" href="https://www.wikidata.org/wiki/Q{link}">{name}</a>'
+        else:
+            if preds and golds:
+                out += '['
+            # Predictions (False Positives)
+            sub_offset = start
+            for (start, _), (name, link) in sorted(preds):
+                out += text[sub_offset:start]
+                out += f'<a class="fp" href="https://www.wikidata.org/wiki/Q{link}">{name}</a>'
+                sub_offset = start + len(name)
+            if preds and golds:
+                out += text[sub_offset:end] + ' / '
+            # Gold labels (False Negatives)
+            sub_offset = start
+            for (start, _), (name, link) in sorted(golds):
+                out += text[sub_offset:start]
+                out += f'<a class="fn" href="https://www.wikidata.org/wiki/Q{link}">{name}</a>'
+                sub_offset = start + len(name)
+            if preds and golds:
+                out += text[sub_offset:end] + ']'
+        offset = end
     out += text[offset:]
     return out
 
