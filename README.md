@@ -5,6 +5,9 @@ The `minimel` package provides a framework to create and evaluate small Entity L
 > **Warning**
 > This package is still under construction. A release is planned for the summer of 2023.
 
+## App
+To run the app, run `cd app` and then `flask run`.
+
 ## Evaluation Datasets
 
 - [VoxEL: A Benchmark Dataset for Multilingual Entity Linking](https://figshare.com/articles/dataset/VoxEL/6539675)
