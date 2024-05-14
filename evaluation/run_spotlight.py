@@ -10,11 +10,11 @@ import json
 import re
 
 JARFILE = "dbpedia-spotlight-model/rest/target/rest-1.1-jar-with-dependencies.jar"
-PORT = "2222"
+PORT = "2223"
 
 
-def get_annotations(url, t):
-    r = requests.get(url, params={"text": t}, headers={"Accept": "application/json"})
+def get_annotations(url, t, timeout=None):
+    r = requests.get(url, params={"text": t}, headers={"Accept": "application/json"}, timeout=timeout)
     if r.ok:
         return r.json()
 
@@ -49,6 +49,7 @@ if __name__ == "__main__":
         text = text.replace('"', '\\"')
         xml = f'<annotation text="{text}">\n'
         for e in json.loads(ents):
+            e = e.replace('!', '')
             try:
                 m = re.search(e, text)
                 if m:
@@ -58,11 +59,15 @@ if __name__ == "__main__":
                 continue
         xml += "</annotation>"
         ents = {}
-        annot = get_annotations(url + "/disambiguate", xml) or {}
-        for rec in annot.get("Resources", []):
-            uri = rec.get("@URI", "")
-            sf = rec.get("@surfaceForm", "")
-            e = index.get(re.sub("http://.*dbpedia.org/resource/", "", uri))
-            if e:
-                ents[sf] = e
-        print(i, json.dumps(ents), sep="\t")
+        try:
+            annot = get_annotations(url + "/disambiguate", xml, timeout=5) or {}
+            for rec in annot.get("Resources", []):
+                uri = rec.get("@URI", "")
+                sf = rec.get("@surfaceForm", "")
+                e = index.get(re.sub("http://.*dbpedia.org/resource/", "", uri))
+                if e:
+                    ents[sf] = e
+            print(i, json.dumps(ents), sep="\t")
+        except requests.exceptions.ReadTimeout:
+            print(i, "{}", sep="\t")
+        
