@@ -4,6 +4,7 @@ eval = evaluate
 subcommands = [
     index,
     xml_db,
+    query_pages,
     get_disambig,
     get_paragraphs,
     count,

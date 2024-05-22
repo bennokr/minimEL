@@ -5,16 +5,40 @@
 body { font-family: sans-serif; }
 #main {margin: 0 auto; max-width: 800px;}
 textarea { width: 100%; height: 8em }
+.blue { color:#07b }
+.cyan { color:#3be }
+.teal, .tp { color:#098 }
+.orange { color:#e73 }
+.red { color:#c31 }
+.magenta, .fp { color:#e37 }
+.grey, .fn { color:#bbb }
 </style>
 <script type="text/javascript">
 function link() {
     text = document.getElementById('text').value;
+    gold = document.getElementById('gold').value;
     lang = document.getElementById('lang').value;
     document.getElementById('spinner').style.visibility = 'visible';
 
-    fetch(window.location.href.split(/[?#]/)[0] + '/el?' + new URLSearchParams({text: text, lang:lang}))
+    params = new URLSearchParams({text: text, gold:gold, lang:lang});
+    fetch(window.location.href.split(/[?#]/)[0] + '/el?' + params)
     .then(response => response.text()).then(data => {
         document.getElementById('result').innerHTML = data;
+        document.getElementById('spinner').style.visibility = 'hidden';
+    })
+}
+
+function random() {
+    lang = document.getElementById('lang').value;
+    document.getElementById('spinner').style.visibility = 'visible';
+
+    params = new URLSearchParams({lang:lang});
+    fetch(window.location.href.split(/[?#]/)[0] + '/random?' + params)
+    .then(response => response.json()).then(data => {
+
+        document.getElementById('result').innerHTML = "";
+        document.getElementById('text').value = data['text'];
+        document.getElementById('gold').value = data['gold'];
         document.getElementById('spinner').style.visibility = 'hidden';
     })
 }
@@ -24,12 +48,16 @@ function link() {
     <h1>Minimal EL</h1>
     <p>
         <select id="lang">
-            {% for code, name in models.items() %}
-            <option value={{ code }}>{{ name }}</option>
+            {% for code, model in models.items() %}
+            <option value={{ code }}>{{ model.name }}</option>
             {% endfor %}
         </select>
+        <button onclick="random()">Random Example</button>
     </p>
-    <p><textarea id="text" placeholder="Your text here"></textarea></p>
+    <div style="display:flex;">
+        <textarea id="text" placeholder="Your text here" style="width:66%"></textarea>
+        <textarea id="gold" style="width:33%">{}</textarea>
+    </div>
     <p><button onclick="link()">Link</button><img src="static/load.gif" id="spinner" style="height:1em; visibility:hidden; "/></p>
     <p id="result"></p>
 </div>

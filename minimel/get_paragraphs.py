@@ -5,17 +5,9 @@ import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-import pathlib, argparse, logging, re, json
-import os, sys, re, codecs
+import pathlib, logging, re, json
+import sys, re
 import xml.etree.cElementTree as cElementTree
-
-import mwparserfromhell
-import mwparserfromhell.nodes as nodes
-
-try:
-    import dawg
-except ImportError:
-    import dawg_python as dawg
 
 from .scale import fileparts
 
@@ -23,6 +15,8 @@ BADSTART = ["{{", "[", "|"]  # TODO: filter out paragraphs that are only links
 
 
 def get_str(node):
+    import mwparserfromhell.nodes as nodes
+
     if type(node) == nodes.wikilink.Wikilink:
         s = str(node.text or node.title)
         if "|" not in s:
@@ -32,11 +26,14 @@ def get_str(node):
     return ""
 
 
-good = [nodes.text.Text, nodes.tag.Tag, nodes.wikilink.Wikilink]
+
 
 
 def get_text(w):
+    import mwparserfromhell.nodes as nodes
+
     text = ""
+    good = [nodes.text.Text, nodes.tag.Tag, nodes.wikilink.Wikilink]
     for p in w.ifilter(matches=lambda x: type(x) in good, recursive=False):
         if type(p) == nodes.tag.Tag:
             if p.wiki_markup and p.contents:
@@ -44,7 +41,7 @@ def get_text(w):
                     text += get_str(n)
         else:
             text += get_str(p)
-    return text.replace("\n", " ").strip()
+    return text.replace("\n", " ").replace("\t", " ").strip()
 
 
 def get_links(w, index):
@@ -58,6 +55,8 @@ def get_links(w, index):
 
 
 def process_line(pagename, mwcode, index, skip=None):
+    import mwparserfromhell
+
     skip = list(skip) or []
     if (not mwcode) or mwcode.startswith("#"):
         return
@@ -80,6 +79,12 @@ def process_line(pagename, mwcode, index, skip=None):
 
 
 def get_anchor_paragraphs(lines, dawgfile, skip=[]):
+    try:
+        import dawg
+    except ImportError:
+        import dawg_python as dawg
+
+    
     index = dawg.IntDAWG()
     index.load(str(dawgfile))
     output = []
@@ -122,7 +127,7 @@ def get_paragraphs(
         outglob = str(wikidump.parent) + "/" + stem + "/*.tsv"
         tasks = anchors.map("\t".join).to_textfiles(outglob, compute=False)
 
-        n = db.from_delayed(data).map_partitions(lambda x: [1]).persist()
+        n = db.from_delayed(tasks).map_partitions(lambda x: [1]).persist()
         if logging.root.level < 30:
             progress(n, out=sys.stderr)
         logging.info(f"Wrote {sum(n.compute())} partitions")

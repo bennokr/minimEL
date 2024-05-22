@@ -5,7 +5,7 @@ import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-import pathlib, argparse, logging
+import pathlib, logging
 
 from vowpalwabbit import pyvw
 

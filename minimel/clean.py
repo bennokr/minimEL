@@ -1,9 +1,9 @@
 """
 Filter anchor counts
 """
-import math, collections, itertools
-import json, sqlite3, tqdm, re, html
-import sys, pathlib, argparse, logging, typing
+import math, collections
+import json, sqlite3, tqdm, re
+import pathlib, logging
 
 from .normalize import normalize
 
@@ -89,6 +89,7 @@ def clean(
     indexdbfile: pathlib.Path,
     disambigfile: pathlib.Path,
     countfile: pathlib.Path,
+    namecountfile: pathlib.Path = None,
     *,
     outfile: pathlib.Path = None,
     stem: str = None,
@@ -112,6 +113,7 @@ def clean(
         indexdbfile: Wikimapper index sqlite3 database
         disambigfile: Disambiguation JSON file
         countfile: Hyperlink anchor count {word: {Q_ent: count}} JSON file
+        namecountfile: Count file
 
     Keyword Arguments:
         outfile: Output file or directory (default: `clean.json`)

@@ -3,15 +3,12 @@ import pathlib
 import pickle
 import json
 import sys
-import glob
 import logging
-from contextlib import redirect_stdout
+import itertools
 
-import tqdm
-import pandas as pd
-import numpy as np
 from vowpalwabbit import pyvw
 
+import tqdm
 try:
     import dawg
 except ImportError:
@@ -34,6 +31,7 @@ def vectorize_text(texts, vectorizer=None, dim=None):
 
 
 def get_scores(golds, preds):
+    import pandas as pd
     from sklearn.metrics import precision_recall_fscore_support
 
     gold, pred = zip(
@@ -72,7 +70,7 @@ class MiniNED:
         Named Entity Disambiguation class
 
         Args:
-            dawgfile: DAWG trie file of Wikipedia > Wikidata count
+            dawgfile: DAWG trie file of Wikipedia > Wikidata id
             candidatefile: Candidate {name -> [ID]} json
             modelfile: Vowpal Wabbit model
 
@@ -93,10 +91,12 @@ class MiniNED:
 
         self.ent_feats = None
         if ent_feats_csv:
+            import pandas as pd
+
             self.ent_feats = pd.read_csv(
                 ent_feats_csv, header=None, index_col=0, na_values=""
             )
-            self.ent_feats = ent_feats[1].fillna("")
+            self.ent_feats = self.ent_feats[1].fillna("")
             logging.info(f"Loaded {len(self.ent_feats)} entity features")
 
         self.model = None
@@ -118,7 +118,7 @@ class MiniNED:
         ns = "_".join(vw_tok(norm))
         for i, ent in enumerate(ents):
             efeats = (
-                str(self.ent_feats.get(l, "")) if (self.ent_feats is not None) else ""
+                str(self.ent_feats.get(ent, "")) if (self.ent_feats is not None) else ""
             )
             efeats = "|f " + efeats if efeats else ""
             cands = [f"{e} |l {ns}={e} {efeats}" for e in ents[i:] + ents[:i]]
@@ -211,7 +211,7 @@ def run(
         upperbound: Create upper bound on performance
     """
     if (not any(runfiles)) or ("-" in runfiles):
-        runfiles = (sys.stdin,)
+        runfiles = (None,)
     logging.debug(f"Reading from {runfiles}")
     if (not outfile) or (outfile == "-"):
         outfile = sys.stdout
@@ -230,14 +230,20 @@ def run(
     )
 
     ids, ents, texts = (), (), ()
-    data = pd.concat([pd.read_csv(i, sep="\t", header=None) for i in runfiles])
-    if data.shape[1] == 1:
-        texts = data[0]
-    elif data.shape[1] == 2:
-        ids, texts = data[0], data[1]
-    elif data.shape[1] == 3:
-        data[1] = data[1].map(json.loads)
-        ids, ents, texts = data[0], data[1], data[2]
+    lines = iter(line for f in runfiles for line in (open(f) if f else sys.stdin))
+    peek = next(lines)
+    lines = itertools.chain([peek], lines)
+    n_tabs = len(peek.split('\t'))
+    if n_tabs == 1:
+        texts = list(lines)
+    elif n_tabs == 2:
+        ids, texts = zip(*(l.split('\t') for l in lines))
+    elif n_tabs == 3:
+        def parse():
+            for l in lines:
+                i, e, t = l.split('\t')
+                yield i, json.loads(e), t
+        ids, ents, texts = zip(*parse())
 
     preds = []
     it = tqdm.tqdm(texts, "Predicting") if logging.root.level < 30 else texts
@@ -246,9 +252,7 @@ def run(
         if len(ents):
             for name in ents[i]:
                 gold = ents[i][name] if upperbound else None
-                pred = ned.predict(
-                    text, name, upperbound=gold, all_scores=all_scores
-                )
+                pred = ned.predict(text, name, upperbound=gold, all_scores=all_scores)
                 if pred:
                     ent_pred[name] = pred
         if predict_only or all_scores:
@@ -285,6 +289,8 @@ def evaluate(
         agg: Aggregation jsons (TODO: depend on data...?)
 
     """
+    import pandas as pd
+
     data = pd.read_csv(str(goldfile), sep="\t", header=None)
     assert data.shape[1] > 1
     gold = data[0] if data.shape[1] == 2 else data.set_index(0)[1]

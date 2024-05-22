@@ -4,3 +4,5 @@ sphinx-mdinclude
 sphinx-autodoc-typehints
 pandoc
 nbsphinx
+sphinx_rtd_theme
+IPython

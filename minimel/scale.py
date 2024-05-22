@@ -1,11 +1,13 @@
 import os
-import re
 import codecs
 import time
 import logging
 
-import dask.distributed
-from dask.diagnostics import ProgressBar
+try:
+    import dask.distributed
+    from dask.diagnostics import ProgressBar
+except ModuleNotFoundError:
+    logging.error("Install dask to train models")
 
 if logging.root.level < 30:
     pbar = ProgressBar()

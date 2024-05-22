@@ -5,20 +5,62 @@ import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-import sys, pathlib, argparse, logging, json
+import pathlib, logging, json
 import xml.etree.cElementTree as cElementTree
+import contextlib, sys
 
-import mwparserfromhell
 
-try:
-    import dawg
-except ImportError:
-    import dawg_python as dawg
+def writer(fn): 
+    @contextlib.contextmanager
+    def stdout():
+        yield sys.stdout
+    return open(fn, 'w') if fn else stdout()
 
-from .scale import fileparts
+def query_pages(langcode: str, *, query_listpages: bool = False, outfile: pathlib.Path = None):
+    """
+    Query the Wikidata API to get disambiguation (& list pages if indicated)
+
+    Returns Wikidata Qids, one per line
+
+    Args:
+        langcode: Wikipedia language code
+
+    Keyword Arguments:
+        query_listpages: Whether to also query for list pages
+
+    """
+    import requests
+
+    listquery = """UNION
+        {?s wdt:P31 wd:Q13406463 .} # list
+        UNION
+        {?s wdt:P360 ?l . } # list of
+    """ if query_listpages else ''
+
+    query = """
+        SELECT DISTINCT ?s WHERE {
+        {?s wdt:P31 wd:Q4167410 .} # disambig
+        %s
+
+        ?page schema:about ?s .
+        ?page schema:inLanguage "%s" .
+        }
+        """ % (listquery, langcode)
+    url = 'https://query.wikidata.org/sparql'
+    params = {'format': 'json', 'query': query}
+    results = requests.get(url, params=params).json()
+    bindings = results.get('results', []).get('bindings', [])
+    qids = [b.get('s', {}).get('value', '')[31:] for b in bindings]
+
+    logging.info(f"Writing to {outfile}")
+    with writer(outfile) as fw:
+        for q in qids:
+            print(q, file=fw)
 
 
 def get_list_links(page, disambig_template=None):
+    import mwparserfromhell
+
     code = mwparserfromhell.parse(page)
     nodes = code.filter(matches=(lambda x: str(x).strip()), recursive=True)
 
@@ -40,6 +82,11 @@ def get_list_links(page, disambig_template=None):
 
 
 def get_disambig_links(lines, dawgfile, disambig_ent_file=None, disambig_template=None):
+    try:
+        import dawg
+    except ImportError:
+        import dawg_python as dawg
+        
     index = dawg.IntDAWG()
     index.load(dawgfile)
 
@@ -90,11 +137,11 @@ def get_disambig(
 
     Keyword Arguments:
         nparts: Number of chunks to read
-        disambig-template: Use disambiguation pages that contain a template with this name instead of `disambig_ent_file` (if disambig_ent_file is provided, create it)
+        disambig_template: Use disambiguation pages that contain a template with this name instead of `disambig_ent_file` (if disambig_ent_file is provided, create it)
     """
 
     import dask.bag as db
-    from .scale import progress, get_client
+    from .scale import progress, get_client, fileparts
 
     if disambig_template:
         logging.info(
