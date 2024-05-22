@@ -48,7 +48,11 @@ def query_pages(langcode: str, *, query_listpages: bool = False, outfile: pathli
         """ % (listquery, langcode)
     url = 'https://query.wikidata.org/sparql'
     params = {'format': 'json', 'query': query}
-    results = requests.get(url, params=params).json()
+    headers = {
+        "Accept": "application/json",
+        "user-agent": "github.com/bennokr/minimel/0.0.1",
+    }
+    results = requests.get(url, params=params, headers=headers).json()
     bindings = results.get('results', []).get('bindings', [])
     qids = [b.get('s', {}).get('value', '')[31:] for b in bindings]
 

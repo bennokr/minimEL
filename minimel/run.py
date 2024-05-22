@@ -185,6 +185,7 @@ def run(
     lang: str = None,
     fallback: pathlib.Path = None,
     evaluate: bool = False,
+    evalfile: pathlib.Path = None,
     predict_only: bool = True,
     all_scores: bool = False,
     upperbound: bool = False,
@@ -206,6 +207,7 @@ def run(
         ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
         fallback: Additional fallback deterministic name -> ID json
         evaluate: Report evaluation scores instead of predictions
+        evalfile: Write evaluation results to file
         predict_only: Only print predictions, not original text
         all_scores: Output all candidate scores
         upperbound: Create upper bound on performance
@@ -270,13 +272,16 @@ def run(
         preds.append(ent_pred)
 
     if len(ents) and evaluate:
-        logging.info(get_scores(ents, preds).T.to_csv())
+        e = get_scores(ents, preds).T.to_csv(evalfile)
+        if e:
+            logging.info(e)
 
 
 def evaluate(
     goldfile: pathlib.Path,
     *predfiles: pathlib.Path,
     agg: typing.List[pathlib.Path] = (),
+    evalfile: pathlib.Path = None,
 ):
     """
     Evaluate predictions
@@ -287,6 +292,7 @@ def evaluate(
 
     Keyword Arguments:
         agg: Aggregation jsons (TODO: depend on data...?)
+        evalfile: Write evaluation results to file
 
     """
     import pandas as pd
@@ -311,8 +317,10 @@ def evaluate(
         preddf = preddf.replace([np.nan], [None])
         scores[predfile] = get_scores(preddf.gold, preddf.pred)
 
+    scores = pd.DataFrame(scores).T
+    if evalfile:
+        scores.to_csv(evalfile)
     if "defopt" in sys.modules:
         pd.set_option("display.max_colwidth", None)
-        print(pd.DataFrame(scores).T)
-    else:
-        return pd.DataFrame(scores).T
+        logging.info(scores)
+    return scores
