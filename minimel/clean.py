@@ -104,7 +104,7 @@ def clean(
     """
     Filter anchor counts (given their candidate entity counts).
 
-    First, only keep candidate entities that either have minimal counts or are
+    First, only keep ambiguous candidate entities that either have minimal counts or are
     linked from disambiguation pages.
     If the tokenscore is low, then names with high entropy or countratio
     (len / sum) are removed.
@@ -130,14 +130,17 @@ def clean(
     """
     name_ent_counts = json.load(open(countfile))
     total_ent_count = collections.Counter()
-    ss = name_ent_counts.items()
+    ss = list(name_ent_counts.items())
     if logging.root.level < 30:
         ss = tqdm.tqdm(ss, desc="Counting entities...")
     for s, ec in ss:
         ec = {int(e[1:]): c for e, c in ec.items()}
         for e, c in ec.items():
             total_ent_count[e] += c
-        name_ent_counts[s] = collections.Counter(ec)
+        if len(ec) > 1: # only ambiguous names
+            name_ent_counts[s] = collections.Counter(ec)
+        else:
+            del name_ent_counts[s]
 
     disambig_names = set()
     for s, es in json.load(open(disambigfile)).items():

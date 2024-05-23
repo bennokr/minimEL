@@ -96,7 +96,7 @@ def experiment(
     runfile: typing.List[pathlib.Path] = ("",),
     use_fallback: typing.List[bool] = (True,),
     also_baseline: bool = True,
-    evaluate: bool = False,
+    evaluate: bool = False
 ):
     """
     Run all steps to train and evaluate EL models over a parameter sweep.
@@ -132,7 +132,7 @@ def experiment(
         runfile: TSV rows of (ID, {name -> ID}, text) or ({name -> ID}, text)
         use_fallback: Use raw counts as fallback
         also_baseline: Also run a baseline model without model predictions
-        evaluate: Write evaluation scores to logging output
+        evaluate: Write evaluation scores to file
     """
     root = root.absolute()
     outdir = outdir or root
@@ -255,6 +255,7 @@ def experiment(
                                         outfile=newdir / "run___baseline.tsv",
                                         fallback=fallback,
                                         evaluate=evaluate,
+                                        evalfile=newdir / "run___baseline_eval.csv",
                                         **run_params,
                                     )
                             logging.info("Running model...")
@@ -267,5 +268,6 @@ def experiment(
                                     outfile=newdir / "run___model.tsv",
                                     fallback=fallback,
                                     evaluate=evaluate,
+                                    evalfile=newdir / "run___model_eval.csv",
                                     **run_params,
                                 )
