@@ -3,7 +3,7 @@
 The `minimel` package provides a framework to create and evaluate small Entity Linking models.
 
 > **Warning**
-> This package is still under construction. A release is planned for the summer of 2023.
+> This package is still under construction. A release is planned for the summer of 2024.
 
 ## App
 To run the app, run `cd app` and then `flask run`.
