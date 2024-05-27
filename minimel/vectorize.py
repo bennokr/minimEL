@@ -32,9 +32,11 @@ def vw(
     name_count_json: pathlib.Path,
     ent_feats_csv=None,
     balanced=False,
-    language=False,
+    stem=False,
     usenil=False,
     head=None,
+    split=None,
+    fold=None,
 ):
     """Create VW-formatted training data
 
@@ -42,6 +44,16 @@ def vw(
         lines: iterable of (pageid, {name: entityid} json, text) tsv lines
         name_count_json: path to json file of {name: {entityid: weight}}
         ent_feats_csv: path to csv of (entityid,feat1 feat2 feat3 ...)
+
+    Keyword Arguments:
+        head: Use only N first lines from each partition
+        stem: Stemming language ISO 639-1 (2-letter) code
+        ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
+        balanced: Use balanced training
+        usenil: Use NIL option
+        split: Split the data into several parts
+        fold: Ignore this fold of the split data
+
 
     """
     name_weights = json.load(name_count_json.open())
@@ -83,7 +95,9 @@ def vw(
                 yield f"{l}:{w} |l {ns}={l} {efeats}"
 
     outlines = []
-    for line in itertools.islice(lines, 0, head):
+    for i, line in enumerate(itertools.islice(lines, 0, head)):
+        if split and (i % split == fold):
+            continue
         pgid, mention_ent, text = line.split("\t", 2)
         try:
             mention_ent = json.loads(mention_ent)
@@ -96,7 +110,7 @@ def vw(
             continue
         labels = []
         for m, e in mention_ent.items():
-            for norm in normalize(m, language=language):
+            for norm in normalize(m, language=stem):
                 if norm in name_weights and e in name_weights[norm]:
                     weights = name_weights[norm]
                     for label in vw_label_lines(weights, e, norm, ent_feats):
@@ -104,8 +118,8 @@ def vw(
 
         if usenil:
             # add NIL data from name_trie
-            for normtext in normalize(text, language=language):
-                normtoks = vw_tok(normtext)
+            # TODO: use AhoCorasick!!!
+            for normtext in normalize(text, language=stem):
                 for i, tok in enumerate(vw_tok(normtext)):
                     for comp in name_trie.keys(tok):
                         if comp not in mention_ent:
@@ -187,6 +201,8 @@ def vectorize(
     ent_feats_csv: pathlib.Path = None,
     balanced: bool = False,
     usenil: bool = False,
+    split: int = None,
+    fold: int = None,
 ):
     """
     Vectorize paragraph text dataset into Vowpal Wabbit format
@@ -204,6 +220,8 @@ def vectorize(
         ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
         balanced: Use balanced training
         usenil: Use NIL option
+        split: Split the data into several parts
+        fold: Ignore this fold of the split data
     """
 
     if vectorizer:
@@ -251,8 +269,10 @@ def vectorize(
             head=head,
             ent_feats_csv=ent_feats_csv,
             balanced=balanced,
-            language=stem,
+            stem=stem,
             usenil=usenil,
+            split=split, 
+            fold=fold
         ).to_textfiles(f"{outfile}.parts", compute=False)
 
         n = db.from_delayed(data).map_partitions(lambda x: [1]).persist()

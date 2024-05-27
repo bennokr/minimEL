@@ -189,6 +189,8 @@ def run(
     predict_only: bool = True,
     all_scores: bool = False,
     upperbound: bool = False,
+    split: int = None,
+    fold: int = None,
 ):
     """
     Perform entity disambiguation
@@ -211,9 +213,13 @@ def run(
         predict_only: Only print predictions, not original text
         all_scores: Output all candidate scores
         upperbound: Create upper bound on performance
+        split: Split the data into several parts
+        fold: Use only this fold of the split data
     """
     if (not any(runfiles)) or ("-" in runfiles):
         runfiles = (None,)
+    if all(f.is_dir() for f in runfiles):
+        runfiles = [f for r in runfiles for f in r.glob('*')]
     logging.debug(f"Reading from {runfiles}")
     if (not outfile) or (outfile == "-"):
         outfile = sys.stdout
@@ -232,7 +238,14 @@ def run(
     )
 
     ids, ents, texts = (), (), ()
-    lines = iter(line for f in runfiles for line in (open(f) if f else sys.stdin))
+    def get_lines():
+        for f in runfiles:
+            for i, line in enumerate(open(f) if f else sys.stdin):
+                if split and not (i % split == fold):
+                    # Only use the fold (opposite from training)
+                    continue
+                yield line
+    lines = get_lines()
     peek = next(lines)
     lines = itertools.chain([peek], lines)
     n_tabs = len(peek.split('\t'))
@@ -272,9 +285,11 @@ def run(
         preds.append(ent_pred)
 
     if len(ents) and evaluate:
-        e = get_scores(ents, preds).T.to_csv(evalfile)
-        if e:
+        e = get_scores(ents, preds)
+        e.to_csv(evalfile)
+        if len(e):
             logging.info(e)
+        return e
 
 
 def evaluate(

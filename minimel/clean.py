@@ -113,7 +113,7 @@ def clean(
         indexdbfile: Wikimapper index sqlite3 database
         disambigfile: Disambiguation JSON file
         countfile: Hyperlink anchor count {word: {Q_ent: count}} JSON file
-        namecountfile: Count file
+        namecountfile: Counts of names (regardless of hyperlinks)
 
     Keyword Arguments:
         outfile: Output file or directory (default: `clean.json`)

@@ -11,9 +11,11 @@ from .normalize import normalize
 from minimel.vectorize import vw_tok
 
 
-def count_links(lines, stem=None, head=None):
+def count_links(lines, stem=None, head=None, split=None, fold=None):
     link_count = collections.defaultdict(collections.Counter)
-    for line in itertools.islice(lines, 0, head):
+    for i, line in enumerate(itertools.islice(lines, 0, head)):
+        if split and (i % split == fold):
+            continue
         pagetitle, links, paragraph = line.split("\t", 2)
         links = json.loads(links)
         for a, e in links.items():
@@ -30,6 +32,8 @@ def count(
     min_count: int = 2,
     stem: str = None,
     head: int = None,
+    split: int = None,
+    fold: int = None,
 ):
     """
     Count targets per anchor text in Wikipedia paragraphs.
@@ -44,6 +48,8 @@ def count(
         stem: Stemming language ISO 639-1 (2-letter) code
         min_count: Minimal (anchor-text, target) occurrence
         head: Use only N first lines from each partition
+        split: Split the data into several parts
+        fold: Ignore this fold of the split data
     """
 
     import dask.bag as db
@@ -55,7 +61,7 @@ def count(
     with get_client():
         bag = db.read_text(str(paragraphlinks) + "/*", files_per_partition=3)
         counts = (
-            bag.map_partitions(count_links, stem=stem, head=head)
+            bag.map_partitions(count_links, stem=stem, head=head, split=split, fold=fold)
             .to_dataframe(meta={"a": str, "e": int, "c": int})
             .groupby(["a", "e"])["c"]
             .sum(split_out=32)
