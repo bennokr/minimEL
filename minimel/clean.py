@@ -84,6 +84,48 @@ def tokenscore(name, count, id_titles):
     alltoks = lambda c: set(t for l in id_titles.get(c, "") for t in tokens(l))
     return sum(leftjacc(stok, alltoks(c)) for c in count) / len(count)
 
+def cluster(name_scores, score_threshold):
+    # log transform
+    name_scores = {
+        a: {e: math.log1p(c) for e, c in ec.items()} for a, ec in name_scores.items()
+    }
+    # l2 normalize
+    name_scores = {
+        a: {
+            e: c / t
+            for t in [sum(v**2 for v in ec.values()) ** 0.5]
+            for e, c in ec.items()
+        }
+        for a, ec in name_scores.items()
+    }
+    id_anchors = {}
+    for a, es in name_scores.items():
+        for e in es:
+            id_anchors.setdefault(e, set()).add(a)
+
+    surface_cluster = {i: i for i in name_scores}
+    for a, es in tqdm.tqdm(name_scores.items()):
+        others = set.union(*[id_anchors[e] for e in es]) - set([a])
+        for o in others:
+            x, y = set(name_scores[o]), set(es)
+            # score = len(x&y) / len(x|y) # jacc
+            score = sum(name_scores[o][v] * es[v] for v in x & y)  # cosine
+            if score > score_threshold:
+                surface_cluster[o] = surface_cluster[a]
+                # print(f'{a:20s} {o:20s}', score )
+
+    clusters = {}
+    for s, c in surface_cluster.items():
+        clusters.setdefault(c, set()).add(s)
+    cluster_scores = {}
+    for ss in clusters.values():
+        ec = collections.Counter()
+        for s in ss:
+            ec.update(name_scores[s])
+        cluster_scores['  '.join(ss)] = dict(ec)
+    return cluster_scores
+
+
 
 def clean(
     indexdbfile: pathlib.Path,
@@ -100,6 +142,7 @@ def clean(
     entropy_threshold: float = 1.0,
     countratio_threshold: float = 0.5,
     quantile_top_shadowed: float = None,
+    cluster_threshold: float = None,
 ):
     """
     Filter anchor counts (given their candidate entity counts).
@@ -217,6 +260,9 @@ def clean(
             te, tc = top_counts[s]
             good_counts.setdefault(s, {})[te] = tc
             good_counts[s][e] = c
+
+    if cluster_threshold:
+        good_counts = cluster(good_counts, cluster_threshold)
 
     fname = "clean.json"
     if not outfile:

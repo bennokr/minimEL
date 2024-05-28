@@ -58,8 +58,9 @@ def vw(
     """
     name_weights = json.load(name_count_json.open())
     name_weights = {
-        m: {int(e.replace("Q", "")): c for e, c in ec.items()}
-        for m, ec in name_weights.items()
+        name: {int(e.replace("Q", "")): c for e, c in ec.items()}
+        for names, ec in name_weights.items()
+        for name in names.split('  ')
     }
     logging.debug(f"Loaded {len(name_weights)} name weights")
 
@@ -70,6 +71,7 @@ def vw(
             import dawg_python as dawg
             
         # Make name lookup trie
+        # TODO: use AhoCorasick!!!
         name_trie = dawg.CompletionDAWG(name_weights)
 
     # Load entity features

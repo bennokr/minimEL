@@ -87,6 +87,7 @@ def experiment(
     entropy_threshold: typing.List[float] = (1.0,),
     countratio_threshold: typing.List[float] = (0.5,),
     quantile_top_shadowed: typing.List[float] = (0,),
+    cluster_threshold: typing.List[float] = (None,),
     # Vectorize
     vectorizer: typing.List[pathlib.Path] = ("",),
     ent_feats_csv: typing.List[pathlib.Path] = ("",),
@@ -127,6 +128,7 @@ def experiment(
         countratio_threshold: Count-ratio (len / sum) threshold
         quantile_top_shadowed: Only train models for a % names with highest counts
             of candidate entities shadowed by the top candidate
+        cluster_threshold: Cluster names based on their meanings
         vectorizer: Scikit-learn vectorizer .pickle or Fasttext .bin word
             embeddings. If unset, use tokens directly.
         ent_feats_csv: CSV of (ent_id,space separated feat list) entity features
@@ -183,6 +185,7 @@ def experiment(
             entropy_threshold=entropy_threshold,
             countratio_threshold=countratio_threshold,
             quantile_top_shadowed=quantile_top_shadowed,
+            cluster_threshold=cluster_threshold,
         ):
             newdir = curdir / make_dir_params("clean", **clean_params)
             newdir.mkdir(parents=True, exist_ok=True)
