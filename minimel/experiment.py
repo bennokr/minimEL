@@ -302,4 +302,4 @@ def experiment(
         evals = pd.concat(evals, axis=1).T
         evals.columns = evals.columns.map('.'.join)
         df = pd.concat([pd.json_normalize(params), evals], axis=1)
-        df.to_csv('evaluation.csv')
+        df.to_csv(outdir / 'evaluation.csv')
