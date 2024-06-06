@@ -56,6 +56,8 @@ def vw(
 
 
     """
+    assert split > fold
+
     name_weights = json.load(name_count_json.open())
     name_weights = {
         name: {int(e.replace("Q", "")): c for e, c in ec.items()}

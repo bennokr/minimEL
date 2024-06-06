@@ -2,6 +2,7 @@ from minimel import *
 
 eval = evaluate
 subcommands = [
+    prepare,
     index,
     xml_db,
     query_pages,

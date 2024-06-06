@@ -216,6 +216,8 @@ def run(
         split: Split the data into several parts
         fold: Use only this fold of the split data
     """
+    assert split > fold
+    
     if (not any(runfiles)) or ("-" in runfiles):
         runfiles = (None,)
     if all(f.is_dir() for f in runfiles):

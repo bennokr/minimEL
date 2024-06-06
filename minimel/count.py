@@ -51,6 +51,7 @@ def count(
         split: Split the data into several parts
         fold: Ignore this fold of the split data
     """
+    assert split > fold
 
     import dask.bag as db
     from .scale import progress, get_client
