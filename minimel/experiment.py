@@ -99,7 +99,8 @@ def experiment(
     runfile: typing.List[pathlib.Path] = ("",),
     use_fallback: typing.List[bool] = (True,),
     also_baseline: bool = True,
-    evaluate: bool = False
+    evaluate: bool = False,
+    evaluate_per_name: bool = False,
 ):
     """
     Run all steps to train and evaluate EL models over a parameter sweep.
@@ -139,6 +140,7 @@ def experiment(
         use_fallback: Use raw counts as fallback
         also_baseline: Also run a baseline model without model predictions
         evaluate: Write evaluation scores to file
+        evaluate_per_name: Write evaluation scores per name to file
     """
     results = []
     root = root.absolute()
@@ -268,6 +270,11 @@ def experiment(
                                 'run': run_params,
                             }
                             if also_baseline:
+                                if evaluate_per_name:
+                                    run_params['evalfile_per_name'] = (
+                                    newdir / "run___baseline_eval_per_name.csv"
+                                    )
+
                                 logging.info("Running baseline...")
                                 with log_time(newdir / "baseline-time.log"):
                                     e = run(
@@ -283,6 +290,11 @@ def experiment(
                                     results.append(({'model':'baseline', **params},e))
                             logging.info("Running model...")
                             with log_time(newdir / "model-time.log"):
+                                if evaluate_per_name:
+                                    run_params['evalfile_per_name'] = (
+                                        newdir / "run___model_eval_per_name.csv"
+                                    )
+
                                 e = run(
                                     dawgfile,
                                     cleanfile,

@@ -30,29 +30,38 @@ def vectorize_text(texts, vectorizer=None, dim=None):
             return embed(texts, vectorizer)
 
 
-def get_scores(golds, preds):
+def get_scores(golds, preds, per_name=False):
     import pandas as pd
-    from sklearn.metrics import precision_recall_fscore_support
+    from sklearn.metrics import precision_recall_fscore_support, classification_report
 
-    gold, pred = zip(
+    def score_df(gold, pred):
+        res = pd.DataFrame(
+            {
+                avg: precision_recall_fscore_support(
+                    gold, pred, zero_division=0, average=avg
+                )[:-1]
+                for avg in ["micro", "macro"]
+            },
+            index=["precision", "recall", "fscore"],
+        )
+        res = res.unstack().T
+        res.loc[("", "support")] = len(gold)
+        return res
+
+    names, gold, pred = zip(
         *(
-            ((gs or {}).get(name, -1) or -1, (ps or {}).get(name, -1) or -1)
+            (name, (gs or {}).get(name, -1) or -1, (ps or {}).get(name, -1) or -1)
             for (gs, ps) in zip(golds, preds)
             for name in set(gs or {}) | set(ps or {})
         )
     )
-    res = pd.DataFrame(
-        {
-            avg: precision_recall_fscore_support(
-                gold, pred, zero_division=0, average=avg
-            )[:-1]
-            for avg in ["micro", "macro"]
-        },
-        index=["precision", "recall", "fscore"],
-    )
-    res = res.unstack().T
-    res.loc[("", "support")] = len(gold)
-    return res
+    if per_name:
+        df = pd.DataFrame({'name': names, 'gold': gold, 'pred': pred})
+        df = df.groupby('name').filter(lambda x: len(x)>10)
+        df = df.groupby('name').apply(lambda x: score_df(x['gold'], x['pred']))
+        return df.sort_values(('','support'), ascending=False)
+    else:
+        return score_df(gold, pred)
 
 
 class MiniNED:
@@ -186,6 +195,8 @@ def run(
     fallback: pathlib.Path = None,
     evaluate: bool = False,
     evalfile: pathlib.Path = None,
+    
+    evalfile_per_name: pathlib.Path = None,
     predict_only: bool = True,
     all_scores: bool = False,
     upperbound: bool = False,
@@ -210,6 +221,7 @@ def run(
         fallback: Additional fallback deterministic name -> ID json
         evaluate: Report evaluation scores instead of predictions
         evalfile: Write evaluation results to file
+        evalfile_per_name: Write evaluation results per name to file
         predict_only: Only print predictions, not original text
         all_scores: Output all candidate scores
         upperbound: Create upper bound on performance
@@ -287,6 +299,8 @@ def run(
         preds.append(ent_pred)
 
     if len(ents) and evaluate:
+        if evalfile_per_name:
+            get_scores(ents, preds, per_name=True).to_csv(evalfile_per_name)
         e = get_scores(ents, preds)
         e.to_csv(evalfile)
         if len(e):
