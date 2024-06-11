@@ -57,9 +57,9 @@ def get_scores(golds, preds, per_name=False):
     )
     if per_name:
         df = pd.DataFrame({'name': names, 'gold': gold, 'pred': pred})
-        df = df.groupby('name').filter(lambda x: len(x)>10)
-        df = df.groupby('name').apply(lambda x: score_df(x['gold'], x['pred']))
-        return df.sort_values(('','support'), ascending=False)
+        df = df.groupby('name').filter(lambda x: len(x['gold'].unique())>1)
+        res = df.groupby('name').apply(lambda x: score_df(x['gold'], x['pred']))
+        return res.sort_values(('','support'), ascending=False)
     else:
         return score_df(gold, pred)
 
