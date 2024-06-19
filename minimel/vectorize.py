@@ -1,6 +1,7 @@
 """
 Vectorize paragraph text dataset
 """
+
 import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -56,13 +57,13 @@ def vw(
 
 
     """
-    assert split > fold
+    assert (not split) or (split > fold)
 
     name_weights = json.load(name_count_json.open())
     name_weights = {
         name: {int(e.replace("Q", "")): c for e, c in ec.items()}
         for names, ec in name_weights.items()
-        for name in names.split('  ')
+        for name in names.split("  ")
     }
     logging.debug(f"Loaded {len(name_weights)} name weights")
 
@@ -71,7 +72,7 @@ def vw(
             import dawg
         except ImportError:
             import dawg_python as dawg
-            
+
         # Make name lookup trie
         # TODO: use AhoCorasick!!!
         name_trie = dawg.CompletionDAWG(name_weights)
@@ -258,7 +259,7 @@ def vectorize(
         pbar.register()
 
     if stem:
-        logging.info(f"Snowball stemming for language: {stem}")
+        logging.info(f"Stemming for language: {stem}")
 
     with get_client():
         urlpath = str(paragraphlinks)
@@ -275,8 +276,8 @@ def vectorize(
             balanced=balanced,
             stem=stem,
             usenil=usenil,
-            split=split, 
-            fold=fold
+            split=split,
+            fold=fold,
         ).to_textfiles(f"{outfile}.parts", compute=False)
 
         n = db.from_delayed(data).map_partitions(lambda x: [1]).persist()
@@ -289,7 +290,7 @@ def vectorize(
         it = pathlib.Path(f"{outfile}.parts").glob("*")
         if logging.root.level < 30:
             import tqdm
-            
+
             it = tqdm.tqdm(list(it), desc="Concatenating")
         for fin in it:
             with fin.open("rb") as f:

@@ -13,11 +13,21 @@ setup(
     entry_points={"console_scripts": ["minimel = minimel.__main__:main"]},
     install_requires=["vowpalwabbit", "DAWG-Python", "tqdm", "defopt", "pandas"],
     extras_require={
-        "train": ["wikimapper", "mwparserfromhell", "dask[distributed]", "dawg2", "seaborn", "dask_jobqueue", "dask[dataframe]", "scikit-learn"],
+        "train": [
+            "wikimapper",
+            "mwparserfromhell",
+            "dask[distributed]",
+            "dawg2",
+            "seaborn",
+            "dask_jobqueue",
+            "dask[dataframe]",
+            "scikit-learn",
+        ],
         "mentions": ["ahocorasick-rs"],
         "stem": ["icu_tokenizer"],
         "ja": ["mecab-python3", "unidic-lite"],
         "fa": ["PersianStemmer"],
+        "is": ["simplemma"],
         "demo": ["Flask", "gitpython", "ahocorasick-rs"],
         "docs": [
             "sphinxcontrib-apidoc",

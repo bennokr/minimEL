@@ -1,6 +1,7 @@
 """
 Find entity mentions
 """
+
 import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -72,7 +73,7 @@ def count_names(
     from .scale import progress, get_client
 
     if stem:
-        logging.info(f"Snowball stemming for language: {stem}")
+        logging.info(f"Stemming for language: {stem}")
 
     with get_client():
         bag = db.read_text(str(paragraphlinks) + "/*", files_per_partition=3)

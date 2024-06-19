@@ -9,6 +9,7 @@ import itertools
 from vowpalwabbit import pyvw
 
 import tqdm
+
 try:
     import dawg
 except ImportError:
@@ -56,10 +57,10 @@ def get_scores(golds, preds, per_name=False):
         )
     )
     if per_name:
-        df = pd.DataFrame({'name': names, 'gold': gold, 'pred': pred})
-        df = df.groupby('name').filter(lambda x: len(x['gold'].unique())>1)
-        res = df.groupby('name').apply(lambda x: score_df(x['gold'], x['pred']))
-        return res.sort_values(('','support'), ascending=False)
+        df = pd.DataFrame({"name": names, "gold": gold, "pred": pred})
+        df = df.groupby("name").filter(lambda x: len(x["gold"].unique()) > 1)
+        res = df.groupby("name").apply(lambda x: score_df(x["gold"], x["pred"]))
+        return res.sort_values(("", "support"), ascending=False)
     else:
         return score_df(gold, pred)
 
@@ -195,7 +196,6 @@ def run(
     fallback: pathlib.Path = None,
     evaluate: bool = False,
     evalfile: pathlib.Path = None,
-    
     evalfile_per_name: pathlib.Path = None,
     predict_only: bool = True,
     all_scores: bool = False,
@@ -228,12 +228,12 @@ def run(
         split: Split the data into several parts
         fold: Use only this fold of the split data
     """
-    assert split > fold
-    
+    assert (not split) or (split > fold)
+
     if (not any(runfiles)) or ("-" in runfiles):
         runfiles = (None,)
     if all(f.is_dir() for f in runfiles):
-        runfiles = [f for r in runfiles for f in r.glob('*')]
+        runfiles = [f for r in runfiles for f in r.glob("*")]
     logging.debug(f"Reading from {runfiles}")
     if (not outfile) or (outfile == "-"):
         outfile = sys.stdout
@@ -252,6 +252,7 @@ def run(
     )
 
     ids, ents, texts = (), (), ()
+
     def get_lines():
         for f in runfiles:
             for i, line in enumerate(open(f) if f else sys.stdin):
@@ -259,19 +260,22 @@ def run(
                     # Only use the fold (opposite from training)
                     continue
                 yield line
+
     lines = get_lines()
     peek = next(lines)
     lines = itertools.chain([peek], lines)
-    n_tabs = len(peek.split('\t'))
+    n_tabs = len(peek.split("\t"))
     if n_tabs == 1:
         texts = list(lines)
     elif n_tabs == 2:
-        ids, texts = zip(*(l.split('\t') for l in lines))
+        ids, texts = zip(*(l.split("\t") for l in lines))
     elif n_tabs == 3:
+
         def parse():
             for l in lines:
-                i, e, t = l.split('\t')
+                i, e, t = l.split("\t")
                 yield i, json.loads(e), t
+
         ids, ents, texts = zip(*parse())
 
     preds = []

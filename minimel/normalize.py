@@ -11,7 +11,7 @@ def normalize(a, language=None, spacy=False):
         a = a.split("_(")[0].replace("_", " ")
         a = re.sub(f"[{BADCHARS}]", "", a.replace("&nbsp;", " "))
         a = html.unescape(a).lower().strip()
-        
+
         # no numbers or dates
         if not (a.startswith("<") or re.match("^[0-9-/—]+$", a)):
             if a and language:
@@ -80,6 +80,12 @@ def stem(text, code, spacy=False):
 
                 STEMMERS[code] = snowballstemmer.stemmer(lang)
             return " ".join(STEMMERS[code].stemWords(tokenizer(text)))
+        elif code == "is":
+            if code not in STEMMERS:
+                from simplemma import text_lemmatizer
+
+                STEMMERS[code] = text_lemmatizer
+            return " ".join(STEMMERS[code](text, lang="is"))
         elif code == "fa":
             if code not in STEMMERS:
                 from PersianStemmer import PersianStemmer

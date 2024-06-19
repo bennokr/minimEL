@@ -1,6 +1,7 @@
 """
 Count targets per anchor text in Wikipedia paragraphs
 """
+
 import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -51,18 +52,20 @@ def count(
         split: Split the data into several parts
         fold: Ignore this fold of the split data
     """
-    assert split > fold
+    assert (not split) or (split > fold)
 
     import dask.bag as db
     from .scale import progress, get_client
 
     if stem:
-        logging.info(f"Snowball stemming for language: {stem}")
+        logging.info(f"Stemming for language: {stem}")
 
     with get_client():
         bag = db.read_text(str(paragraphlinks) + "/*", files_per_partition=3)
         counts = (
-            bag.map_partitions(count_links, stem=stem, head=head, split=split, fold=fold)
+            bag.map_partitions(
+                count_links, stem=stem, head=head, split=split, fold=fold
+            )
             .to_dataframe(meta={"a": str, "e": int, "c": int})
             .groupby(["a", "e"])["c"]
             .sum(split_out=32)
