@@ -15,14 +15,20 @@ log = logging.getLogger(__name__)
 
 def get_matches(matcher, text, offsets=True, stem=None):
     # TODO stem
-    for i, start, end in matcher.find_matches_as_indexes(text):
-        # Make sure match is surrounded by non-alphanumeric characters
-        if start != 0 and text[start - 1].isalnum():
-            continue
-        if end != len(text) and text[end].isalnum():
-            continue
-        t = text[start:end]
-        yield (start, t) if offsets else t
+    if "AhoCorasick" in [c.__name__ for c in type(matcher).__mro__]:
+        for i, start, end in matcher.find_matches_as_indexes(text):
+            # Make sure match is surrounded by non-alphanumeric characters
+            if start != 0 and text[start - 1].isalnum():
+                continue
+            if end != len(text) and text[end].isalnum():
+                continue
+            t = text[start:end]
+            yield (start, t) if offsets else t
+
+    if "Language" in [c.__name__ for c in type(matcher).__mro__]:
+        # spacy
+        for e in matcher(text).ents:
+            yield (e.start_char, e.text)
 
 
 def setup_matcher(countfile, names=None):
@@ -37,6 +43,12 @@ def setup_matcher(countfile, names=None):
         implementation=Implementation.NoncontiguousNFA,
     )
     return matcher
+
+
+def spacy_matcher(model):
+    import spacy
+
+    return spacy.load(model)
 
 
 def count_name_lines(lines, countfile, stem=None, head=None):
