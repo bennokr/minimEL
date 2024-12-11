@@ -114,7 +114,8 @@ def get_paragraphs(
         nparts: Number of chunks to read
     """
     import dask.bag as db
-    from .scale import progress, get_client
+    import dask
+    from .scale import progress_delayed, get_client
 
     with get_client():
         bag = db.from_sequence(range(nparts), npartitions=nparts).map_partitions(
@@ -126,8 +127,6 @@ def get_paragraphs(
         stem = str(wikidump.stem).replace("pages-articles", "paragraph-links")
         outglob = str(wikidump.parent) + "/" + stem + "/*.tsv"
         tasks = anchors.map("\t".join).to_textfiles(outglob, compute=False)
-
-        n = db.from_delayed(tasks).map_partitions(lambda x: [1]).persist()
-        if logging.root.level < 30:
-            progress(n, out=sys.stderr)
-        logging.info(f"Wrote {sum(n.compute())} partitions")
+        
+        progress_delayed(tasks)
+        

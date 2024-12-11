@@ -165,11 +165,9 @@ def get_disambig(
                 disambig_template=disambig_template,
             )
         )
+        
         logging.info(f"Extracting disambiguation links...")
-        if logging.root.level < 30:
-            progress(links.persist(), out=sys.stderr)
-        else:
-            links.persist()
+        progress(links)
 
         ents, titles, links = zip(*links.compute())
         if disambig_template and disambig_ent_file:

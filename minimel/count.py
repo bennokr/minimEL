@@ -73,8 +73,7 @@ def count(
         )
 
         logging.info("Counting links...")
-        if logging.root.level < 30:
-            progress(counts.persist(), out=sys.stderr)
+        progress(counts)
 
         logging.info(f"Got {len(counts)} counts.")
         logging.info("Aggregating...")
@@ -86,8 +85,7 @@ def count(
             return {f"Q{e}": c for e, c in x.set_index("e")["c"].items()}
 
         a_e_count = select.groupby("a").apply(make_id_count_dict, meta=("c", int))
-        if logging.root.level < 30:
-            progress(a_e_count.persist(), out=sys.stderr)
+        progress(a_e_count)
 
         s = f"-stem" if stem else ""
         fname = f"count.min{min_count}{s}.json"

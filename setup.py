@@ -22,6 +22,7 @@ setup(
             "dask_jobqueue",
             "dask[dataframe]",
             "scikit-learn",
+            "requests",
         ],
         "mentions": ["ahocorasick-rs"],
         "stem": ["icu_tokenizer"],

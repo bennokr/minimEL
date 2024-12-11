@@ -98,14 +98,9 @@ def count_names(
         )
 
         logging.info("Counting names...")
-        if logging.root.level < 30:
-            progress(counts.persist(), out=sys.stderr)
+        progress(counts)
 
         logging.info(f"Got {len(counts)} counts.")
-        logging.info("Aggregating...")
-
-        if logging.root.level < 30:
-            progress(counts.persist(), out=sys.stderr)
 
         s = f"-stem" if stem else ""
         h = f"-head{head}" if head else ""

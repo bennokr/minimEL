@@ -2,9 +2,10 @@ import os
 import codecs
 import time
 import logging
+import sys
 
 try:
-    import dask.distributed
+    import dask.distributed, dask, dask.bag as db
     from dask.diagnostics import ProgressBar
 except ModuleNotFoundError:
     logging.error("Install dask to train models")
@@ -15,11 +16,20 @@ if logging.root.level < 30:
 
 
 def progress(*args, **kwargs):
-    start = time.time()
-    p = dask.distributed.progress(*args, **kwargs)
-    end = time.time()
-    logging.info(f"Finished in {int(end - start)}s")
-    return p
+    if logging.root.level < 30:
+        start = time.time()
+        p = dask.distributed.progress(*args, **kwargs, out=sys.stderr)
+        end = time.time()
+        logging.info(f"Finished in {int(end - start)}s")
+        return p
+    
+
+def progress_delayed(tasks):
+    count = dask.delayed(lambda x: [1])
+    tasks = [count(t) for t in tasks]
+    n = db.from_delayed(tasks).persist()
+    progress(n)
+
 
 
 def get_client(*args, **kwargs):

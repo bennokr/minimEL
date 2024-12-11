@@ -250,7 +250,7 @@ def vectorize(
     logging.info(f"Vectorizing training examples for {n_ambig} ambiguous names")
 
     import dask.bag as db
-    from .scale import progress, get_client
+    from .scale import progress_delayed, get_client
 
     from dask.diagnostics import ProgressBar
 
@@ -268,7 +268,7 @@ def vectorize(
 
         bag = db.read_text(urlpath, files_per_partition=3)
         logging.info(f"Writing to {outfile}.parts")
-        data = bag.map_partitions(
+        tasks = bag.map_partitions(
             vw,
             name_count_json,
             head=head,
@@ -280,10 +280,7 @@ def vectorize(
             fold=fold,
         ).to_textfiles(f"{outfile}.parts", compute=False)
 
-        n = db.from_delayed(data).map_partitions(lambda x: [1]).persist()
-        if logging.root.level < 30:
-            progress(n, out=sys.stderr)
-        logging.info(f"Wrote {sum(n.compute())} partitions")
+        progress_delayed(tasks)
 
     logging.info(f"Concatenating to {outfile}")
     with outfile.open("wb") as fout:

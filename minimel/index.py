@@ -73,10 +73,7 @@ def xml_db(wikidump: pathlib.Path, *, ns: int = 0, nparts: int = 100):
         )
 
         page_id = bag.map_partitions(get_ids, ns)
-        if logging.root.level < 30:
-            progress(page_id.persist(), out=sys.stderr)
-        else:
-            page_id.persist()
+        progress(page_id)
 
         data = list(page_id.compute())
         outfile = wikidump.parent / f"index_{wikidump.stem}.db"
