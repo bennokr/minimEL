@@ -244,8 +244,8 @@ def experiment(
                     train_params = dict(get_dir_params(curdir))
 
                     # Run
-                    if any(runfile) or split:
-                        if split:
+                    if any(runfile) or any(split):
+                        if any(split):
                             # if performing cross-validation, use training data
                             runfile = [paragraphlinks]
                         
@@ -314,4 +314,5 @@ def experiment(
         evals = pd.concat(evals, axis=1).T
         evals.columns = evals.columns.map('.'.join)
         df = pd.concat([pd.json_normalize(params), evals], axis=1)
+        df['run.fallback'] = df['run.fallback'].astype('bool')
         df.to_csv(outdir / 'evaluation.csv')

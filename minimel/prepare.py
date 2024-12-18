@@ -14,6 +14,7 @@ def prepare(
     overwrite: bool = False,
     nparts: int = 100,
     index_only: bool = False,
+    custom_langcode: str = None,
 ):
     """
     Download required files and make indices
@@ -28,6 +29,7 @@ def prepare(
         overwrite: Whether to overwrite existing files
         nparts: Number of chunks to read
         index_only: Whether to only create the DAWG index
+        custom_langcode: Custom language code (if different from wikiname, e.g. "en-simple")
     """
     from shutil import which
 
@@ -37,31 +39,37 @@ def prepare(
     from wikimapper import download_wikidumps, create_index
     from wikimapper.download import _download_file
 
-    logging.info("Downloading & creating entity index...")
     rootdir = rootdir or pathlib.Path.cwd()
     dumpname = f"{wikiname}-{version}"
-    download_wikidumps(dumpname, rootdir, mirror, overwrite)
-    create_index(dumpname, rootdir, rootdir / f"index_{dumpname}.db")
-
-    db_fname = rootdir / f"index_{dumpname}.db"
-    index(db_fname)
+    dawgfile = rootdir / f"index_{dumpname}.dawg"
+    if not overwrite and not dawgfile.exists():
+        logging.info("Downloading & creating entity index...")
+        download_wikidumps(dumpname, rootdir, mirror, overwrite)
+        index_fname = rootdir / f"index_{dumpname}.db"
+        if not overwrite and not index_fname.exists():
+            create_index(dumpname, rootdir, index_fname)
+        index(index_fname)
 
     if not index_only:
-        logging.info("Downloading wikipedia dump...")
-        pa_fname = f"{dumpname}-pages-articles.xml"
-        pa_url = mirror + f"/{wikiname}/{version}/" + pa_fname + ".bz2"
-        _download_file(pa_url, rootdir / (pa_fname + ".bz2"), overwrite)
-        subprocess.run(["bunzip2", rootdir / (pa_fname + ".bz2")])
+        pl_dir = rootdir / f"{dumpname}-paragraph-links"
+        if not overwrite and not pl_dir.exists():
+            logging.info("Downloading wikipedia dump...")
+            pa_fname = f"{dumpname}-pages-articles.xml"
+            pa_url = mirror + f"/{wikiname}/{version}/" + pa_fname + ".bz2"
+            wikidump = rootdir / pa_fname
+            if not overwrite and not wikidump.exists():
+                pa_zip = rootdir / (pa_fname + ".bz2")
+                _download_file(pa_url, pa_zip, overwrite)
+                subprocess.run(["bunzip2", pa_zip])
 
-        logging.info("Extracting paragraphs from wikipedia dump...")
-        wikidump = rootdir / pa_fname
-        dawgfile = rootdir / f"index_{dumpname}.dawg"
-        get_paragraphs(wikidump, dawgfile, nparts=nparts)
+            logging.info("Extracting paragraphs from wikipedia dump...")
+            get_paragraphs(wikidump, dawgfile, nparts=nparts)
 
         lang = wikiname.split("wiki")[0]
         disambigpages = rootdir / "ents-disambig.txt"
         logging.info("Querying Wikidata for disambiguation pages...")
-        query_pages(lang, outfile=disambigpages)
+        if not overwrite and not disambigpages.exists():
+            query_pages(custom_langcode or lang, outfile=disambigpages)
 
         logging.info("Extracting disambiguation pages...")
         get_disambig(wikidump, dawgfile, disambigpages, nparts=nparts)
